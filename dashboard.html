@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financiero</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <!-- Header del Dashboard -->
+    <div class="dashboard-header">
+        <div class="header-title">
+            <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="dashboard-logo">
+            <h1>Dashboard Financiero</h1>
+        </div>
+        <div class="header-date">
+            <i class="fas fa-calendar-day"></i>
+            <span id="currentDate"></span>
+        </div>
+        <button id="refreshBtn" class="btn-refresh">
+            <i class="fas fa-sync-alt"></i> Actualizar
+        </button>
+    </div>
+
+    <!-- Alertas y Avisos -->
+    <div id="alertsContainer" class="alerts-container"></div>
+
+    <!-- Dashboard Cards -->
+    <div class="dashboard-cards">
+        <!-- Card 1: Ventas -->
+        <div class="dashboard-card" data-card="ventas">
+            <div class="card-main">
+                <div class="card-icon ventas-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="card-info">
+                    <h3>Ventas del Día</h3>
+                    <div class="card-value" id="totalVentas">$0.00</div>
+                    <p class="card-subtitle" id="cantidadVentas">0 transacciones</p>
+                </div>
+                <button class="card-expand-btn" onclick="verDetallesVentas()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="card-subcards">
+                <div class="subcard" onclick="verDetalleVentasEfectivo()">
+                    <span class="subcard-label">Efectivo</span>
+                    <span class="subcard-value" id="ventasEfectivo">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+                <div class="subcard warning-subcard" onclick="verDetalleVentasCredito()">
+                    <span class="subcard-label">A Crédito</span>
+                    <span class="subcard-value" id="ventasCredito">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Ingresos -->
+        <div class="dashboard-card" data-card="ingresos">
+            <div class="card-main">
+                <div class="card-icon ingresos-icon">
+                    <i class="fas fa-arrow-circle-down"></i>
+                </div>
+                <div class="card-info">
+                    <h3>Ingresos del Día</h3>
+                    <div class="card-value" id="totalIngresos">$0.00</div>
+                    <p class="card-subtitle" id="cantidadIngresos">0 movimientos</p>
+                </div>
+                <button class="card-expand-btn" onclick="verDetallesIngresos()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="card-subcards">
+                <div class="subcard" onclick="verDetallesVentas()">
+                    <span class="subcard-label">Ventas</span>
+                    <span class="subcard-value" id="ingresosVentas">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+                <div class="subcard" onclick="verDetallePagosCxC()">
+                    <span class="subcard-label">Pagos CxC</span>
+                    <span class="subcard-value" id="pagosCxC">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+                <div class="subcard" onclick="verDetallesTransferencias()">
+                    <span class="subcard-label">Transferencias</span>
+                    <span class="subcard-value" id="ingresosTransferencias">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Egresos -->
+        <div class="dashboard-card" data-card="egresos">
+            <div class="card-main">
+                <div class="card-icon egresos-icon">
+                    <i class="fas fa-arrow-circle-up"></i>
+                </div>
+                <div class="card-info">
+                    <h3>Egresos del Día</h3>
+                    <div class="card-value" id="totalEgresos">$0.00</div>
+                    <p class="card-subtitle" id="cantidadEgresos">0 movimientos</p>
+                </div>
+                <button class="card-expand-btn" onclick="verDetallesEgresos()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="card-subcards">
+                <div class="subcard" onclick="verDetallePagosProveedores()">
+                    <span class="subcard-label">Proveedores</span>
+                    <span class="subcard-value" id="pagosProveedores">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+                <div class="subcard" onclick="verDetalleGastos()">
+                    <span class="subcard-label">Gastos</span>
+                    <span class="subcard-value" id="gastosVarios">$0.00</span>
+                    <i class="fas fa-eye subcard-icon"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Transferencias -->
+        <div class="dashboard-card" data-card="transferencias">
+            <div class="card-main">
+                <div class="card-icon transferencias-icon">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div class="card-info">
+                    <h3>Transferencias</h3>
+                    <div class="card-value" id="netoTransferencias">$0.00</div>
+                    <p class="card-subtitle">Neto del día</p>
+                </div>
+                <button class="card-expand-btn" onclick="verDetallesTransferencias()">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="card-subcards">
+                <div class="subcard success-subcard">
+                    <span class="subcard-label">Ingresos</span>
+                    <span class="subcard-value" id="transferenciasIngresos">$0.00</span>
+                </div>
+                <div class="subcard danger-subcard">
+                    <span class="subcard-label">Egresos</span>
+                    <span class="subcard-value" id="transferenciasEgresos">$0.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conciliación Final -->
+    <div class="conciliacion-card">
+        <div class="conciliacion-header">
+            <i class="fas fa-check-double"></i>
+            <h2>Conciliación de Caja</h2>
+        </div>
+        <div class="conciliacion-body">
+            <div class="conciliacion-row">
+                <span class="concil-label">Ventas Efectivo:</span>
+                <span class="concil-value" id="concilVentasEfectivo">$0.00</span>
+            </div>
+            <div class="conciliacion-row positive">
+                <span class="concil-label">+ Pagos CxC Recibidos:</span>
+                <span class="concil-value" id="concilPagosCxC">$0.00</span>
+            </div>
+            <div class="conciliacion-row positive">
+                <span class="concil-label">+ Otros Ingresos:</span>
+                <span class="concil-value" id="concilOtrosIngresos">$0.00</span>
+            </div>
+            <div class="conciliacion-row positive">
+                <span class="concil-label">+ Transferencias Recibidas:</span>
+                <span class="concil-value" id="concilTransfIngresos">$0.00</span>
+            </div>
+            <div class="conciliacion-row negative">
+                <span class="concil-label">- Pagos Proveedores:</span>
+                <span class="concil-value" id="concilPagosProveedores">$0.00</span>
+            </div>
+            <div class="conciliacion-row negative">
+                <span class="concil-label">- Gastos Varios:</span>
+                <span class="concil-value" id="concilGastos">$0.00</span>
+            </div>
+            <div class="conciliacion-row negative">
+                <span class="concil-label">- Transferencias Enviadas:</span>
+                <span class="concil-value" id="concilTransfEgresos">$0.00</span>
+            </div>
+            <div class="conciliacion-divider"></div>
+            <div class="conciliacion-row total">
+                <span class="concil-label"><strong>Caja Física Esperada:</strong></span>
+                <span class="concil-value total-value" id="concilTotalFisica">$0.00</span>
+            </div>
+            <div class="conciliacion-row total">
+                <span class="concil-label"><strong>Neto Caja Virtual (hoy):</strong></span>
+                <span class="concil-value total-value" id="concilTotalVirtual">$0.00</span>
+            </div>
+            <div class="conciliacion-row total">
+                <span class="concil-label"><strong>Saldo Actual Banco:</strong></span>
+                <span class="concil-value total-value" id="concilSaldoBanco">$0.00</span>
+            </div>
+            <div class="conciliacion-divider"></div>
+            <div class="conciliacion-row total">
+                <span class="concil-label"><strong>Total General Esperado:</strong></span>
+                <span class="concil-value total-value" id="concilTotal">$0.00</span>
+            </div>
+            <div class="conciliacion-row warning-row">
+                <span class="concil-label">⚠️ Ventas a Crédito (no en caja):</span>
+                <span class="concil-value" id="concilVentasCredito">$0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Detalles -->
+    <div id="detalleModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Detalles</h3>
+                <div class="modal-header-buttons">
+                    <button class="modal-back" id="modalBack" onclick="regresarModal()" style="display: none;">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <button class="modal-close" onclick="cerrarModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Cargando datos...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Flag para indicar que estamos en el módulo de contabilidad
+        window.CONTABILIDAD_MODULE = true;
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script>
+    <script src="contabilidad-config.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
