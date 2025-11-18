@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
  * Inicializa el dashboard
  */
 async function initDashboard() {
+    if (window.contabilidadAuth && typeof window.contabilidadAuth.ensureSession === 'function') {
+        await window.contabilidadAuth.ensureSession();
+    }
     updateCurrentDate();
     await cargarDatosDashboard();
 }

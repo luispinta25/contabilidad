@@ -94,12 +94,8 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../config.js"></script>
-    <script>
-        // Prevenir que auth.js ejecute su propio DOMContentLoaded
-        window.CONTABILIDAD_MODULE = true;
-    </script>
-    <script src="../auth.js" defer></script>
+    <script src="contabilidad-supabase.js"></script>
+    <script src="contabilidad-auth.js"></script>
     <script src="contabilidad-config.js"></script>
     <script>
         // Sobrescribir funciones de auth.js para este módulo
@@ -111,7 +107,12 @@
         function showApp() {
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('appContainer').style.display = 'flex';
-            document.getElementById('userName').textContent = `${userNombres} ${userApellidos}`.trim() || currentUser.email;
+            const info = window.contabilidadAuth && typeof window.contabilidadAuth.getUserInfo === 'function'
+                ? window.contabilidadAuth.getUserInfo()
+                : null;
+            const displayName = info ? `${info.nombres || ''} ${info.apellidos || ''}`.trim() : '';
+            const fallbackEmail = info && info.user ? info.user.email : '';
+            document.getElementById('userName').textContent = displayName || fallbackEmail || 'Usuario';
         }
 
         // Aliases para evitar conflictos
@@ -139,27 +140,24 @@
 
         // Verificar autenticación
         async function initContabilidadAuth() {
-            const client = getSupabaseClient();
-            if (!client) {
-                mostrarLogin();
-                return;
-            }
-
             try {
-                const { data: { session } } = await client.auth.getSession();
-                
-                if (session) {
-                    currentUser = session.user;
-                    await loadUserRole();
-                    
-                    // Verificar permisos (admin, contador y usuario)
-                    if (userRole !== 'admin' && userRole !== 'contador' && userRole !== 'usuario') {
+                const auth = window.contabilidadAuth;
+                const user = auth ? await auth.ensureSession() : null;
+
+                if (user) {
+                    const hasPermission = auth && typeof auth.hasAnyRole === 'function'
+                        ? auth.hasAnyRole(['admin', 'contador', 'usuario'])
+                        : true;
+
+                    if (!hasPermission) {
                         alert('No tienes permisos para acceder al módulo de contabilidad.');
-                        await client.auth.signOut();
+                        if (auth && typeof auth.logout === 'function') {
+                            await auth.logout();
+                        }
                         mostrarLogin();
                         return;
                     }
-                    
+
                     mostrarApp();
                     loadModule('dashboard');
                 } else {
@@ -182,31 +180,35 @@
 
                 try {
                     errorDiv.style.display = 'none';
-                    const client = getSupabaseClient();
-                    const { data, error } = await client.auth.signInWithPassword({ email, password });
+                    const auth = window.contabilidadAuth;
+                    if (!auth || typeof auth.login !== 'function') {
+                        throw new Error('El módulo de autenticación no está disponible.');
+                    }
 
-                    if (error) throw error;
+                    await auth.login(email, password);
 
-                    currentUser = data.user;
-                    await loadUserRole();
+                    const permitted = typeof auth.hasAnyRole === 'function'
+                        ? auth.hasAnyRole(['admin', 'contador', 'usuario'])
+                        : true;
 
-                    // Verificar permisos
-                    if (userRole !== 'admin' && userRole !== 'contador' && userRole !== 'usuario') {
+                    if (!permitted) {
+                        await auth.logout();
                         throw new Error('No tienes permisos para acceder a este módulo.');
                     }
 
                     mostrarApp();
                     loadModule('dashboard');
                 } catch (error) {
-                    errorDiv.textContent = error.message;
+                    errorDiv.textContent = error.message || 'No se pudo iniciar sesión.';
                     errorDiv.style.display = 'block';
                 }
             });
 
             // Logout
             document.getElementById('logoutBtn').addEventListener('click', async () => {
-                const client = getSupabaseClient();
-                await client.auth.signOut();
+                if (window.contabilidadAuth && typeof window.contabilidadAuth.logout === 'function') {
+                    await window.contabilidadAuth.logout();
+                }
                 mostrarLogin();
             });
 
