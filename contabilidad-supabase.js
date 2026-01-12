@@ -2,7 +2,7 @@
     "use strict";
 
     const DEFAULT_CONFIG = {
-        url: "https://lpsupabase.manasakilla.com",
+        url: "https://lpsupabase.ferrisoluciones.com",
         anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.mKBTuXoyxw3lXRGl1VpSlGbSeiMnRardlIx1q5n-o0k",
         storageKey: "contabilidad.supabase.auth"
     };

@@ -7,13 +7,14 @@
  * Las fechas en la BD están en UTC, pero queremos filtrar por día local de Ecuador (UTC-5)
  */
 function getStartOfDay(date = new Date()) {
-    // Crear fecha de inicio en hora local
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const d = new Date(date);
+    // Extraer componentes locales (browser)
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     
-    // Formato: YYYY-MM-DD 00:00:00 en Ecuador (UTC-5)
-    // En UTC sería 05:00:00 del mismo día
+    // El inicio del día 2024-01-12 en Ecuador (UTC-5) 
+    // es 2024-01-12T05:00:00.000Z en UTC
     return `${year}-${month}-${day}T05:00:00.000Z`;
 }
 
@@ -22,19 +23,19 @@ function getStartOfDay(date = new Date()) {
  * Las fechas en la BD están en UTC, pero queremos filtrar por día local de Ecuador (UTC-5)
  */
 function getEndOfDay(date = new Date()) {
-    // Crear fecha de fin en hora local
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const day = d.getDate();
     
-    // Formato: YYYY-MM-DD 23:59:59 en Ecuador (UTC-5)
-    // En UTC sería 04:59:59 del día siguiente
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
+    // Crear objeto para el día siguiente en local
+    const nextDay = new Date(year, month, day + 1);
     const nextYear = nextDay.getFullYear();
     const nextMonth = String(nextDay.getMonth() + 1).padStart(2, '0');
     const nextDayNum = String(nextDay.getDate()).padStart(2, '0');
     
+    // El fin del día 2024-01-12 en Ecuador (UTC-5) 
+    // es 2024-01-13T04:59:59.999Z en UTC
     return `${nextYear}-${nextMonth}-${nextDayNum}T04:59:59.999Z`;
 }
 
@@ -271,31 +272,8 @@ async function getGastosHoy(targetDate = new Date()) {
         }
 
         console.log('✅ Gastos encontrados con rango Ecuador:', data?.length || 0, data);
-
-        // Si no encuentra nada, intentar buscar por fecha sin hora (más flexible)
-        if (!data || data.length === 0) {
-            console.log('⚠️ No se encontraron gastos con rango UTC, intentando con fecha local...');
-            
-            const today = new Date();
-            const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
-            
-            const { data: data2, error: error2 } = await supabase
-                .from('gastos')
-                .select('*')
-                .gte('fechayhora', `${dateStr}T00:00:00`)
-                .lte('fechayhora', `${dateStr}T23:59:59`)
-                .order('fechayhora', { ascending: false });
-            
-            if (error2) {
-                console.error('❌ Error en segunda búsqueda:', error2);
-                return [];
-            }
-            
-            console.log('✅ Gastos encontrados con búsqueda flexible:', data2?.length || 0, data2);
-            return data2 || [];
-        }
-
         return data || [];
+
     } catch (error) {
         console.error('Error en getGastosHoy:', error);
         return [];
@@ -427,13 +405,27 @@ async function detectarCreditosPagadosMismoDia(creditos, pagos) {
  */
 async function calcularResumenDiario(fecha = new Date()) {
     try {
-        const targetDate = fecha instanceof Date ? new Date(fecha) : new Date(fecha);
+        let targetDate;
+        if (fecha instanceof Date) {
+            targetDate = new Date(fecha.getTime());
+        } else if (typeof fecha === 'string' && fecha.includes('-')) {
+            // Manejar strings YYYY-MM-DD para que siempre sean la fecha esperada en hora local
+            const parts = fecha.split('T')[0].split('-');
+            if (parts.length === 3) {
+                targetDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                targetDate = new Date(fecha);
+            }
+        } else {
+            targetDate = new Date(fecha);
+        }
+
         if (Number.isNaN(targetDate.getTime())) {
             throw new Error('Fecha inválida para el resumen diario');
         }
 
         const fechaISO = toISODateString(targetDate);
-        console.log('🔄 Iniciando cálculo de resumen diario...', { fechaISO });
+        console.log('🔄 Iniciando cálculo de resumen diario...', { fechaISO, original: fecha, targetDate: targetDate.toString() });
         
         // Obtener datos
         const ventas = await getVentasDelDia(targetDate);
@@ -814,6 +806,19 @@ async function crearCajaDiariaRegistro(payload) {
         observaciones: payload.observaciones || null,
         caja_virtual_neta: payload.caja_virtual_neta,
         saldo_banco_final: payload.saldo_banco_final,
+        billet_100: payload.billet_100 || 0,
+        billet_50: payload.billet_50 || 0,
+        billet_20: payload.billet_20 || 0,
+        billet_10: payload.billet_10 || 0,
+        billet_5: payload.billet_5 || 0,
+        billet_2: payload.billet_2 || 0,
+        billet_1: payload.billet_1 || 0,
+        moneda_1: payload.moneda_1 || 0,
+        moneda_050: payload.moneda_050 || 0,
+        moneda_025: payload.moneda_025 || 0,
+        moneda_010: payload.moneda_010 || 0,
+        moneda_005: payload.moneda_005 || 0,
+        moneda_001: payload.moneda_001 || 0,
         cerrado_por: payload.cerrado_por || null,
         cerrado_por_email: payload.cerrado_por_email || null,
         cerrado_por_nombre: payload.cerrado_por_nombre || null
