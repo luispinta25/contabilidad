@@ -115,7 +115,7 @@ async function getVentasDelDia(targetDate = new Date()) {
 
     try {
         const { data, error } = await client
-            .from('ventas')
+            .from('ferre_ventas')
             .select('*')
             .gte('fecha_hora_venta', startOfDay)
             .lte('fecha_hora_venta', endOfDay)
@@ -140,10 +140,10 @@ async function getCreditosOtorgadosHoy(targetDate = new Date()) {
 
     try {
         const { data, error } = await client
-            .from('cuentas_por_cobrar')
+            .from('ferre_cuentas_por_cobrar')
             .select(`
                 *,
-                deudores (
+                ferre_deudores (
                     cedula_ruc,
                     nombre
                 )
@@ -170,14 +170,14 @@ async function getPagosRecibidosHoy(targetDate = new Date()) {
 
     try {
         const { data, error } = await client
-            .from('pagos_cuentas_por_cobrar')
+            .from('ferre_pagos_cuentas_por_cobrar')
             .select(`
                 *,
-                cuentas_por_cobrar (
+                ferre_cuentas_por_cobrar (
                     codigo,
                     motivo,
                     deudor_id,
-                    deudores (
+                    ferre_deudores (
                         nombre,
                         cedula_ruc
                     )
@@ -209,7 +209,7 @@ async function getPagosProveedoresHoy(targetDate = new Date()) {
 
         // Primero intentar query simple sin JOINs
         const { data, error } = await supabase
-            .from('pagos_proveedores')
+            .from('ferre_pagos_proveedores')
             .select('*')
             .gte('fecha_pago', startOfDay)
             .lte('fecha_pago', endOfDay)
@@ -246,7 +246,7 @@ async function getGastosHoy(targetDate = new Date()) {
 
         // DEBUG: Primero ver TODOS los gastos sin filtro
         const { data: todosGastos, error: errorTodos } = await supabase
-            .from('gastos')
+            .from('ferre_gastos')
             .select('*')
             .order('fechayhora', { ascending: false })
             .limit(10);
@@ -259,7 +259,7 @@ async function getGastosHoy(targetDate = new Date()) {
 
         // Ahora buscar con el rango de fechas ajustado a Ecuador
         let { data, error } = await supabase
-            .from('gastos')
+            .from('ferre_gastos')
             .select('*')
             .gte('fechayhora', startOfDay)
             .lte('fechayhora', endOfDay)
@@ -293,7 +293,7 @@ async function getTransferenciasHoy(targetDate = new Date()) {
         console.log('📅 Buscando transferencias del día:', { startOfDay, endOfDay });
 
         const { data, error } = await supabase
-            .from('transferencias')
+            .from('ferre_transferencias')
             .select('*')
             .gte('fechahora', startOfDay)
             .lte('fechahora', endOfDay)
@@ -358,7 +358,7 @@ async function getSaldoActual() {
     try {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
-            .from('saldo_actual')
+            .from('ferre_saldo_actual')
             .select('*')
             .eq('id', 1)
             .maybeSingle();
@@ -688,7 +688,7 @@ async function getCajaInicialPorFecha(fechaISO) {
     try {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
-            .from('caja_inicial')
+            .from('ferre_caja_inicial')
             .select('*')
             .eq('fecha', fechaISO)
             .maybeSingle();
@@ -713,7 +713,7 @@ async function upsertCajaInicialRegistro(payload) {
     };
 
     const { data, error } = await supabase
-        .from('caja_inicial')
+        .from('ferre_caja_inicial')
         .upsert(registro, { onConflict: 'fecha' })
         .select()
         .maybeSingle();
@@ -728,7 +728,7 @@ async function getCajaDiariaPorFecha(fechaISO) {
     try {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
-            .from('caja_diaria')
+            .from('ferre_caja_diaria')
             .select('*')
             .eq('fecha', fechaISO)
             .maybeSingle();
@@ -747,7 +747,7 @@ async function getCajaDiariaPorRango(fechaInicioISO, fechaFinISO) {
     try {
         const supabase = getSupabaseClient();
         let query = supabase
-            .from('caja_diaria')
+            .from('ferre_caja_diaria')
             .select('*')
             .order('fecha', { ascending: true });
 
@@ -769,7 +769,7 @@ async function existeCajaDiariaAnterior(fechaISO) {
     try {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
-            .from('caja_diaria')
+            .from('ferre_caja_diaria')
             .select('fecha')
             .lt('fecha', fechaISO)
             .order('fecha', { ascending: false })
@@ -825,7 +825,7 @@ async function crearCajaDiariaRegistro(payload) {
     };
 
     const { data, error } = await supabase
-        .from('caja_diaria')
+        .from('ferre_caja_diaria')
         .insert(registro)
         .select()
         .maybeSingle();

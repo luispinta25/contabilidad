@@ -47,7 +47,7 @@
 
         try {
             const { data, error } = await client
-                .from("usuarios_ferreteria")
+                .from("ferre_usuarios_ferreteria")
                 .select("rol, nombres, apellidos")
                 .eq("user_id", state.user.id)
                 .maybeSingle();
