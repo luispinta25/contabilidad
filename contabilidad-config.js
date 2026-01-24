@@ -450,17 +450,29 @@ async function calcularResumenDiario(fecha = new Date()) {
         const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
         const gananciaVentas = ventas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0);
         
-        // Separar ventas a crédito
-        // Una venta es a crédito si existe en cuentas_por_cobrar con tipo='VENTA'
+        // Separar ventas por tipo de pago y crédito
         const ventasIdCredito = creditos
             .filter(c => c.tipo === 'VENTA' && c.venta_id)
             .map(c => c.venta_id);
         
         const ventasCredito = ventas.filter(v => ventasIdCredito.includes(v.id));
-        const ventasEfectivo = ventas.filter(v => !ventasIdCredito.includes(v.id));
+        const ventasNoCredito = ventas.filter(v => !ventasIdCredito.includes(v.id));
+
+        // De las no crédito, separar Efectivo vs Transferencia
+        // Consideramos MIXTO como efectivo para el cuadre físico, 
+        // ya que la parte transferencia se registra por separado en ferre_transferencias
+        const ventasEfectivo = ventasNoCredito.filter(v => 
+            (v.tipo_pago || '').toUpperCase() === 'EFECTIVO' || 
+            (v.tipo_pago || '').toUpperCase() === 'MIXTO' || 
+            !(v.tipo_pago)
+        );
+        const ventasTransferencia = ventasNoCredito.filter(v => 
+            (v.tipo_pago || '').toUpperCase() === 'TRANSFERENCIA'
+        );
 
         const totalVentasCredito = ventasCredito.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
         const totalVentasEfectivo = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const totalVentasTransferencia = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
 
         // Calcular ingresos
         const totalPagosCxC = pagos.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
@@ -529,6 +541,7 @@ async function calcularResumenDiario(fecha = new Date()) {
             ventas: {
                 total: totalVentas,
                 efectivo: totalVentasEfectivo,
+                transferencia: totalVentasTransferencia,
                 credito: totalVentasCredito,
                 cantidad: ventas.length,
                 ganancia: gananciaVentas,

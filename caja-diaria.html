@@ -95,7 +95,7 @@
             <div class="stat-card">
                 <span class="stat-label">Caja Virtual</span>
                 <span class="stat-value" id="statCajaVirtual">$0.00</span>
-                <span class="stat-note">Saldo banco: <span id="statSaldoBanco">$0.00</span></span>
+                <span class="stat-note">Ventas Transf.: <span id="statVentasTransferencia">$0.00</span> · Saldo banco: <span id="statSaldoBanco">$0.00</span></span>
             </div>
         </div>
     </section>
@@ -1370,6 +1370,103 @@
         return partes.join(' ');
     }
 
+    async function enviarNotificacionCierreCajaDiaria(payload, resumen) {
+        try {
+            const db = getSupabaseClient();
+            if (!db) return;
+
+            const { data: ferredatos, error } = await db
+                .from('ferre_ferredatos')
+                .select('*')
+                .limit(1)
+                .single();
+
+            if (error || !ferredatos) {
+                console.error('Configuración de WhatsApp no disponible para notificaciones');
+                return;
+            }
+
+            // Formateador local
+            const format = (v) => new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD' }).format(v || 0);
+            
+            const fecha = new Date().toLocaleDateString('es-EC', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const hora = new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+
+            const vTotal = resumen.ventas.total;
+            const vEfectivo = resumen.ventas.efectivo;
+            const vTransferencia = resumen.ventas.transferencia;
+            const vCredito = resumen.ventas.credito;
+
+            const diferencia = payload.caja_fisica_contada - payload.caja_fisica_esperada;
+            const absDiferencia = Math.abs(diferencia);
+            
+            let statusEmoji = '✅';
+            let statusText = 'CUADRADO';
+            
+            if (absDiferencia > 0.01) {
+                if (diferencia < 0) {
+                    statusEmoji = '⚠️';
+                    statusText = 'FALTANTE';
+                } else {
+                    statusEmoji = '🔍';
+                    statusText = 'SOBRANTE';
+                }
+            }
+
+            const texto = `🔒 *CIERRE DE CAJA DIARIA*
+
+${statusEmoji} *Estado:* ${statusText}
+
+📅 *Fecha:* ${fecha}
+🕐 *Hora:* ${hora}
+
+💰 *Resumen Financiero*
+━━━━━━━━━━━━━━━━━━
+📈 *Venta Total:* ${format(vTotal)}
+💵 *Ventas Físicas:* ${format(vEfectivo)}
+💳 *Ventas Transferencia:* ${format(vTransferencia)}
+📝 *Ventas a Crédito:* ${format(vCredito)}
+
+📊 *Movimientos de Caja*
+━━━━━━━━━━━━━━━━━━
+📥 *Total Ingresos:* ${format(payload.ingresos_total)}
+📤 *Total Egresos:* ${format(payload.egresos_total)}
+
+⚖️ *Cuadre de Efectivo*
+━━━━━━━━━━━━━━━━━━
+🏠 *Caja Final (Esperada):* ${format(payload.caja_fisica_esperada)}
+💵 *Caja Física (Contado):* ${format(payload.caja_fisica_contada)}
+⚖️ *Diferencia:* ${format(diferencia)}
+
+🏦 *Información Bancaria*
+━━━━━━━━━━━━━━━━━━
+💰 *Movimiento Virtual:* ${format(payload.caja_virtual_neta)}
+🏦 *Saldo Final en Banco:* ${format(payload.saldo_banco_final)}
+
+👤 *Responsable:* ${payload.cerrado_por_nombre}
+_Sistema de Gestión Ferrisoluciones_`;
+
+            const url = `https://api.ferrisoluciones.com/message/sendText/${ferredatos.instance}`;
+
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'apikey': ferredatos.apikey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    number: ferredatos.number,
+                    text: texto,
+                    delay: 1000,
+                    linkPreview: false
+                })
+            });
+
+        } catch (error) {
+            console.error('Error enviando notificación de cierre:', error);
+        }
+    }
+
     function parseMonto(value) {
         if (value === '' || value === null || value === undefined) return 0;
         const num = Number(value);
@@ -1579,6 +1676,7 @@
             updateText('statTransferEgresos', formatCurrency(0));
             updateText('statCajaFisicaMovimiento', formatCurrency(0));
             updateText('statVentasEfectivo', formatCurrency(0));
+            updateText('statVentasTransferencia', formatCurrency(0));
             updateText('statCajaVirtual', formatCurrency(0));
             updateText('statSaldoBanco', formatCurrency(0));
             if (badge) {
@@ -1600,6 +1698,7 @@
         updateText('statTransferEgresos', formatCurrency(resumen.transferencias.totalEgresos));
         updateText('statCajaFisicaMovimiento', formatCurrency(resumen.caja.fisica.total));
         updateText('statVentasEfectivo', formatCurrency(resumen.caja.fisica.ingresos.ventas));
+        updateText('statVentasTransferencia', formatCurrency(resumen.ventas.transferencia));
         updateText('statCajaVirtual', formatCurrency(resumen.caja.virtual.movimientoHoy));
         updateText('statSaldoBanco', formatCurrency(resumen.caja.virtual.saldoActual));
 
@@ -2093,6 +2192,10 @@
         try {
             await crearCajaDiariaRegistro(payload);
             showCajaAlert('success', 'Caja diaria registrada correctamente.');
+            
+            // Enviar notificación de cierre por WhatsApp
+            enviarNotificacionCierreCajaDiaria(payload, resumen);
+            
             await loadCajaDiariaData();
         } catch (error) {
             console.error('Error al registrar caja diaria:', error);
