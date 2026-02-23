@@ -1713,6 +1713,10 @@ _Sistema de Gestión Ferrisoluciones_`;
     function getCajaEsperada() {
         const inicial = state.cajaInicial ? parseMonto(state.cajaInicial.monto_inicial) : 0;
         const movimientoFisico = state.resumen ? parseMonto(state.resumen.caja.fisica.total) : 0;
+        
+        // La caja esperada física solo debe contemplar el dinero en efectivo.
+        // El movimientoFisico ya calcula (Ventas Efectivo + Pagos CxC Efectivo) - (Proveedores Efectivo + Gastos)
+        // Por lo tanto, no necesitamos restar las transferencias manuales aquí, ya que nunca se sumaron al movimiento físico.
         return inicial + movimientoFisico;
     }
 
@@ -1721,6 +1725,9 @@ _Sistema de Gestión Ferrisoluciones_`;
         if (!input) return;
         const contado = parseMonto(input.value);
         const esperada = getCajaEsperada();
+        
+        // Desfase = Dinero Contado - Caja Esperada
+        // Las transferencias manuales ya se restaron de la caja esperada en el backend
         updateText('cajaDesfaseValor', formatCurrency(contado - esperada));
     }
 

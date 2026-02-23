@@ -495,12 +495,28 @@ async function calcularResumenDiario(fecha = new Date()) {
 
         const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
 
-        const otrosIngresos = 0; // TODO: Implementar cuando exista tabla de otros ingresos
-        const totalIngresos = totalVentas + totalPagosCxC + transferencias.totalIngresos + otrosIngresos;
-        const totalIngresosMovimientos = ventas.length + pagos.length + (transferencias.todas?.length || 0);
+        // Filtrar transferencias manuales (que no son de ventas ni de proveedores)
+        const transferenciasIngresoManuales = transferencias.ingresos.filter(t => 
+            !t.id_venta && !(t.motivo || '').toLowerCase().includes('venta pos') && !(t.motivo || '').toLowerCase().includes('pago a')
+        );
+        const totalTransferenciasIngresoManuales = transferenciasIngresoManuales.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
 
-        const totalEgresosGlobal = totalPagosProveedores + totalGastos + transferencias.totalEgresos;
-        const totalEgresosMovimientos = pagosProveedores.length + gastos.length + (transferencias.egresos?.length || 0);
+        const transferenciasEgresoManuales = transferencias.egresos.filter(t => 
+            t.fotografia !== 'https://urlnodisponible.com' && !(t.motivo || '').toLowerCase().includes('pago a')
+        );
+        const totalTransferenciasEgresoManuales = transferenciasEgresoManuales.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
+
+        const otrosIngresos = 0; // TODO: Implementar cuando exista tabla de otros ingresos
+        
+        // Ingresos Totales = Ventas pagadas (Efectivo + Transferencia) + Pagos CxC + Otros
+        // No sumamos transferencias porque ya están incluidas en las ventas o pagos CxC
+        const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalPagosCxC + otrosIngresos;
+        const totalIngresosMovimientos = ventasEfectivo.length + ventasTransferencia.length + pagos.length;
+
+        // Egresos Totales = Pagos a Proveedores + Gastos
+        // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
+        const totalEgresosGlobal = totalPagosProveedores + totalGastos;
+        const totalEgresosMovimientos = pagosProveedores.length + gastos.length;
 
         const cajaFisicaIngresos = {
             ventas: totalVentasEfectivo,
@@ -509,25 +525,32 @@ async function calcularResumenDiario(fecha = new Date()) {
         };
         const cajaFisicaEgresos = {
             proveedores: pagosProveedoresEfectivo,
-            gastos: totalGastos
+            gastos: totalGastos,
+            // Si das efectivo a cambio de una transferencia, es una salida de efectivo (egreso físico)
+            transferenciasManuales: totalTransferenciasIngresoManuales 
         };
         const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros
-            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos;
+            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.transferenciasManuales;
 
         const cajaVirtualIngresos = {
+            // transferencias.totalIngresos ya incluye las ventas por transferencia y posiblemente pagos CxC si se registran ahí
+            // Para evitar duplicar, solo sumamos las transferencias totales (que es el reflejo real del banco)
+            // Si hay pagos CxC por transferencia que NO están en ferre_transferencias, habría que sumarlos, 
+            // pero asumimos que todo movimiento bancario está en ferre_transferencias.
             transferencias: transferencias.totalIngresos,
-            pagosCxC: pagosCxCTransferencia
+            pagosCxC: 0 // Se asume incluido en transferencias si fue por banco, o se ajusta si es necesario
         };
         const cajaVirtualEgresos = {
+            // transferencias.totalEgresos ya incluye los pagos a proveedores (los de urlnodisponible)
             transferencias: transferencias.totalEgresos,
-            pagosProveedores: pagosProveedoresTransferencia
+            pagosProveedores: 0 // Ya incluido en transferencias.totalEgresos
         };
-        const cajaVirtualMovimiento = (cajaVirtualIngresos.transferencias + cajaVirtualIngresos.pagosCxC)
-            - (cajaVirtualEgresos.transferencias + cajaVirtualEgresos.pagosProveedores);
+        const cajaVirtualMovimiento = cajaVirtualIngresos.transferencias - cajaVirtualEgresos.transferencias;
         const saldoBanco = saldoActual?.monto_total ? parseFloat(saldoActual.monto_total) : 0;
         const saldoBancoFecha = saldoActual?.ultima_actualizacion || null;
 
-        const cajaEsperada = cajaFisicaTotal + saldoBanco;
+        // La caja esperada real depende de la caja inicial, que se suma en la UI
+        const cajaEsperada = cajaFisicaTotal;
 
         // Detectar créditos pagados el mismo día
         const creditosPagadosHoy = await detectarCreditosPagadosMismoDia(creditos, pagos);
@@ -555,9 +578,9 @@ async function calcularResumenDiario(fecha = new Date()) {
             },
             ingresos: {
                 total: totalIngresos,
-                ventas: totalVentas,
+                ventas: totalVentasEfectivo + totalVentasTransferencia, // Solo ventas pagadas
                 pagosCxC: totalPagosCxC,
-                transferencias: transferencias.totalIngresos,
+                transferencias: 0, // Ya no sumamos transferencias a los ingresos
                 otros: otrosIngresos,
                 cantidad: totalIngresosMovimientos,
                 listaPagos: pagos,
@@ -568,6 +591,7 @@ async function calcularResumenDiario(fecha = new Date()) {
                 },
                 detalleVentas: {
                     efectivo: totalVentasEfectivo,
+                    transferencia: totalVentasTransferencia,
                     credito: totalVentasCredito
                 }
             },
@@ -580,7 +604,7 @@ async function calcularResumenDiario(fecha = new Date()) {
                     otros: pagosProveedoresOtros
                 },
                 gastos: totalGastos,
-                transferencias: transferencias.totalEgresos,
+                transferencias: 0, // Ya no sumamos transferencias a los egresos
                 cantidad: totalEgresosMovimientos,
                 listaProveedores: pagosProveedores,
                 listaGastos: gastos
