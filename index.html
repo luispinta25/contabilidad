@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contabilidad - Ferrisoluciones</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Container -->
+    <div id="loginContainer" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="login-logo">
+                <h2>Contabilidad Ferrisoluciones</h2>
+                <p>Sistema de Gestión Financiera</p>
+            </div>
+            <form id="contabilidadLoginForm" class="login-form">
+                <div class="form-group">
+                    <label for="email">
+                        <i class="fas fa-envelope"></i> Correo Electrónico
+                    </label>
+                    <input type="email" id="email" required placeholder="usuario@ferrisoluciones.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">
+                        <i class="fas fa-lock"></i> Contraseña
+                    </label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                </button>
+                <div id="loginError" class="error-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="appContainer" class="app-container" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="app-logo">
+                <h1>Contabilidad Ferrisoluciones</h1>
+            </div>
+            <div class="header-right">
+                <span class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="userName"></span>
+                </span>
+                <button id="logoutBtn" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation Menu -->
+        <nav class="main-nav">
+            <button class="nav-item active" data-module="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-module="caja-diaria">
+                <i class="fas fa-cash-register"></i>
+                <span>Caja Diaria</span>
+            </button>
+            <button class="nav-item" data-module="reportes">
+                <i class="fas fa-file-alt"></i>
+                <span>Reportes</span>
+            </button>
+            <button class="nav-item" data-module="balances">
+                <i class="fas fa-balance-scale"></i>
+                <span>Balances</span>
+            </button>
+            <button class="nav-item" data-module="configuracion">
+                <i class="fas fa-cog"></i>
+                <span>Configuración</span>
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div id="moduleContainer">
+                <!-- Los módulos se cargarán aquí dinámicamente -->
+                <div class="loading-message">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Cargando módulo...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="contabilidad-supabase.js"></script>
+    <script src="contabilidad-auth.js"></script>
+    <script src="contabilidad-config.js"></script>
+    <script>
+        // Sobrescribir funciones de auth.js para este módulo
+        function showLogin() {
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('appContainer').style.display = 'none';
+        }
+
+        function showApp() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'flex';
+            const info = window.contabilidadAuth && typeof window.contabilidadAuth.getUserInfo === 'function'
+                ? window.contabilidadAuth.getUserInfo()
+                : null;
+            const displayName = info ? `${info.nombres || ''} ${info.apellidos || ''}`.trim() : '';
+            const fallbackEmail = info && info.user ? info.user.email : '';
+            document.getElementById('userName').textContent = displayName || fallbackEmail || 'Usuario';
+        }
+
+        // Aliases para evitar conflictos
+        const mostrarLogin = showLogin;
+        const mostrarApp = showApp;
+
+        // =====================================================
+        // GESTIÓN DE AUTENTICACIÓN Y NAVEGACIÓN
+        // =====================================================
+
+        let currentModule = 'dashboard';
+
+        // Inicializar al cargar
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Prevenir que auth.js intente manejar el login automáticamente
+            await initContabilidadAuth();
+            setupEventListeners();
+        });
+
+        // Actualizar fecha actual en el header
+        function updateCurrentDate() {
+            // Esta función se puede usar si agregamos un elemento de fecha en el header
+            // Por ahora no hace nada ya que el iframe del dashboard tiene su propia fecha
+        }
+
+        // Verificar autenticación
+        async function initContabilidadAuth() {
+            try {
+                const auth = window.contabilidadAuth;
+                const user = auth ? await auth.ensureSession() : null;
+
+                if (user) {
+                    const hasPermission = auth && typeof auth.hasAnyRole === 'function'
+                        ? auth.hasAnyRole(['admin', 'contador', 'usuario'])
+                        : true;
+
+                    if (!hasPermission) {
+                        alert('No tienes permisos para acceder al módulo de contabilidad.');
+                        if (auth && typeof auth.logout === 'function') {
+                            await auth.logout();
+                        }
+                        mostrarLogin();
+                        return;
+                    }
+
+                    mostrarApp();
+                    loadModule('dashboard');
+                } else {
+                    mostrarLogin();
+                }
+            } catch (error) {
+                console.error('Error de autenticación:', error);
+                mostrarLogin();
+            }
+        }
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Login form
+            document.getElementById('contabilidadLoginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const errorDiv = document.getElementById('loginError');
+
+                try {
+                    errorDiv.style.display = 'none';
+                    const auth = window.contabilidadAuth;
+                    if (!auth || typeof auth.login !== 'function') {
+                        throw new Error('El módulo de autenticación no está disponible.');
+                    }
+
+                    await auth.login(email, password);
+
+                    const permitted = typeof auth.hasAnyRole === 'function'
+                        ? auth.hasAnyRole(['admin', 'contador', 'usuario'])
+                        : true;
+
+                    if (!permitted) {
+                        await auth.logout();
+                        throw new Error('No tienes permisos para acceder a este módulo.');
+                    }
+
+                    mostrarApp();
+                    loadModule('dashboard');
+                } catch (error) {
+                    errorDiv.textContent = error.message || 'No se pudo iniciar sesión.';
+                    errorDiv.style.display = 'block';
+                }
+            });
+
+            // Logout
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                if (window.contabilidadAuth && typeof window.contabilidadAuth.logout === 'function') {
+                    await window.contabilidadAuth.logout();
+                }
+                mostrarLogin();
+            });
+
+            // Navegación entre módulos
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    loadModule(btn.dataset.module);
+                });
+            });
+        }
+
+        // Cargar módulo
+        async function loadModule(moduleName) {
+            currentModule = moduleName;
+            const container = document.getElementById('moduleContainer');
+
+            if (moduleName === 'dashboard') {
+                // Cargar dashboard como iframe para mantener independencia
+                container.innerHTML = `
+                    <iframe src="dashboard.html" 
+                            style="width: 100%; height: 100%; border: none; display: block;"
+                            title="Dashboard Financiero"></iframe>
+                `;
+            } else if (moduleName === 'caja-diaria') {
+                await loadCajaDiariaModule(container);
+            } else {
+                // Placeholder para otros módulos
+                container.innerHTML = `
+                    <div class="module-placeholder">
+                        <i class="fas fa-tools fa-3x"></i>
+                        <h2>Módulo en Desarrollo</h2>
+                        <p>El módulo <strong>${moduleName}</strong> estará disponible próximamente.</p>
+                    </div>
+                `;
+            }
+
+            updateCurrentDate();
+        }
+
+        async function loadCajaDiariaModule(container) {
+            try {
+                container.innerHTML = `
+                    <div class="loading-message">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Cargando módulo de Caja Diaria...</p>
+                    </div>
+                `;
+
+                const response = await fetch('caja-diaria.html');
+                if (!response.ok) throw new Error('No se pudo cargar el módulo caja-diaria.html');
+
+                const html = await response.text();
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+
+                const scripts = temp.querySelectorAll('script');
+                const scriptContents = [];
+                scripts.forEach(script => {
+                    scriptContents.push(script.textContent);
+                    script.remove();
+                });
+
+                container.innerHTML = temp.innerHTML;
+
+                scriptContents.forEach(content => {
+                    const scriptEl = document.createElement('script');
+                    scriptEl.textContent = content;
+                    document.body.appendChild(scriptEl);
+                    document.body.removeChild(scriptEl);
+                });
+
+                if (typeof initCajaDiaria === 'function') {
+                    initCajaDiaria();
+                }
+            } catch (error) {
+                console.error('Error al cargar Caja Diaria:', error);
+                container.innerHTML = `
+                    <div class="module-placeholder">
+                        <i class="fas fa-exclamation-triangle fa-3x"></i>
+                        <h2>Error al cargar Caja Diaria</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

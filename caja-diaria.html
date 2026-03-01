@@ -1,0 +1,2289 @@
+<div class="caja-diaria-wrapper">
+    <div class="module-header">
+        <div>
+            <h2><i class="fas fa-cash-register"></i> Caja Diaria</h2>
+            <p id="cajaDiariaSubtitulo">Selecciona una fecha para revisar o registrar la caja diaria.</p>
+        </div>
+        <div class="caja-tab-bar">
+            <button class="caja-tab active" data-tab="gestion">
+                <i class="fas fa-calendar-day"></i>
+                <span>Gestión diaria</span>
+            </button>
+            <button class="caja-tab" data-tab="historico">
+                <i class="fas fa-history"></i>
+                <span>Histórico</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="caja-tab-panel active" data-panel="gestion">
+        <div class="module-controls">
+            <label class="date-select-label" for="cajaDaySelect">Fecha:</label>
+            <div class="date-select-group">
+                <select id="cajaDaySelect" class="date-select" aria-label="Día"></select>
+                <select id="cajaMonthSelect" class="date-select" aria-label="Mes">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+                <select id="cajaYearSelect" class="date-select" aria-label="Año"></select>
+            </div>
+            <button id="cajaReloadBtn" class="btn-primary">
+                <i class="fas fa-sync-alt"></i> Consultar
+            </button>
+        </div>
+
+        <div id="cajaDiariaAlerts" class="module-alerts"></div>
+        <div id="cajaDiariaLoading" class="module-loading" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Cargando información...</span>
+        </div>
+
+        <section class="caja-section" id="sectionCajaInicial">
+        <header>
+            <h3><i class="fas fa-door-open"></i> Apertura (Caja Inicial)</h3>
+            <span id="cajaInicialEstado" class="section-badge">Sin registrar</span>
+        </header>
+        <div class="section-body">
+            <div class="info-block" id="cajaInicialInfo" style="display: none;"></div>
+            <p id="cajaInicialEmpty" class="empty-hint" style="display: none;">
+                No existe registro de caja inicial para esta fecha. Debe registrarse desde el punto de venta al abrir la jornada.
+            </p>
+        </div>
+    </section>
+
+    <section class="caja-section" id="sectionResumen">
+        <header>
+            <h3><i class="fas fa-chart-pie"></i> Resumen de Movimientos</h3>
+            <span class="section-badge neutral" id="resumenMovimientosBadge">Sin datos</span>
+        </header>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Ventas Totales</span>
+                <span class="stat-value" id="statVentasTotales">$0.00</span>
+                <span class="stat-note" id="statGananciaVentas">Ganancia: $0.00</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Ingresos</span>
+                <span class="stat-value" id="statIngresosTotales">$0.00</span>
+                <span class="stat-note">Pagos CxC: <span id="statPagosCxC">$0.00</span></span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Egresos</span>
+                <span class="stat-value" id="statEgresosTotales">$0.00</span>
+                <span class="stat-note">Gastos: <span id="statGastos">$0.00</span></span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Transferencias</span>
+                <span class="stat-value" id="statTransferNeto">$0.00</span>
+                <span class="stat-note">Ingresos: <span id="statTransferIngresos">$0.00</span> · Egresos: <span id="statTransferEgresos">$0.00</span></span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Movimiento Caja Física</span>
+                <span class="stat-value" id="statCajaFisicaMovimiento">$0.00</span>
+                <span class="stat-note">Ventas efec.: <span id="statVentasEfectivo">$0.00</span></span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Caja Virtual</span>
+                <span class="stat-value" id="statCajaVirtual">$0.00</span>
+                <span class="stat-note">Ventas Transf.: <span id="statVentasTransferencia">$0.00</span> · Saldo banco: <span id="statSaldoBanco">$0.00</span></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="caja-section" id="sectionCierre">
+        <header>
+            <h3><i class="fas fa-door-closed"></i> Cierre (Caja Diaria)</h3>
+            <span id="cajaCierreEstado" class="section-badge warning">Pendiente</span>
+        </header>
+        <div class="section-body">
+            <div class="resume-grid">
+                <div>
+                    <span class="resume-label">Caja inicial registrada</span>
+                    <span class="resume-value" id="cajaInicialValor">$0.00</span>
+                </div>
+                <div>
+                    <span class="resume-label">Movimientos físicos del día</span>
+                    <span class="resume-value" id="cajaMovimientosFisicos">$0.00</span>
+                </div>
+                <div>
+                    <span class="resume-label">Caja física esperada</span>
+                    <span class="resume-value" id="cajaEsperadaValor">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Desglose por Denominaciones -->
+            <div class="denominaciones-container" id="denominacionesContainer">
+                <div class="denominaciones-header">
+                    <h4><i class="fas fa-coins"></i> Arqueo de Caja (Efectivo)</h4>
+                </div>
+                
+                <div class="denominaciones-group">
+                    <div class="denominaciones-group-title"><i class="fas fa-money-bill-wave"></i> Billetes</div>
+                    <div class="denominaciones-grid">
+                        <div class="denominacion-item">
+                            <label>$100</label>
+                            <input type="number" min="0" step="1" data-valor="100" id="billet_100" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_100">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$50</label>
+                            <input type="number" min="0" step="1" data-valor="50" id="billet_50" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_50">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$20</label>
+                            <input type="number" min="0" step="1" data-valor="20" id="billet_20" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_20">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$10</label>
+                            <input type="number" min="0" step="1" data-valor="10" id="billet_10" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_10">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$5</label>
+                            <input type="number" min="0" step="1" data-valor="5" id="billet_5" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_5">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$2</label>
+                            <input type="number" min="0" step="1" data-valor="2" id="billet_2" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_2">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$1</label>
+                            <input type="number" min="0" step="1" data-valor="1" id="billet_1" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_billet_1">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="denominaciones-group">
+                    <div class="denominaciones-group-title"><i class="fas fa-coins"></i> Monedas</div>
+                    <div class="denominaciones-grid">
+                        <div class="denominacion-item">
+                            <label>$1.00</label>
+                            <input type="number" min="0" step="1" data-valor="1" id="moneda_1" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_1">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$0.50</label>
+                            <input type="number" min="0" step="1" data-valor="0.5" id="moneda_050" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_050">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$0.25</label>
+                            <input type="number" min="0" step="1" data-valor="0.25" id="moneda_025" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_025">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$0.10</label>
+                            <input type="number" min="0" step="1" data-valor="0.1" id="moneda_010" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_010">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$0.05</label>
+                            <input type="number" min="0" step="1" data-valor="0.05" id="moneda_005" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_005">$0.00</span>
+                        </div>
+                        <div class="denominacion-item">
+                            <label>$0.01</label>
+                            <input type="number" min="0" step="1" data-valor="0.01" id="moneda_001" class="denominacion-input" placeholder="0">
+                            <span class="denominacion-subtotal" id="subtotal_moneda_001">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="denominaciones-footer">
+                    <span class="denominaciones-suma">Sumatoria Arqueo: <span id="sumaDenominacionesValor">$0.00</span></span>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-control">
+                    <label for="cajaCierreContado">Efectivo total contado* (Calculado)</label>
+                    <input type="number" min="0" step="0.01" id="cajaCierreContado" class="input-readonly-calc" readonly placeholder="0.00">
+                </div>
+                <div class="form-control">
+                    <label for="cajaCierreNotas">Observaciones de cierre (opcional)</label>
+                    <textarea id="cajaCierreNotas" rows="2" placeholder="Notas de arqueo o diferencias"></textarea>
+                </div>
+            </div>
+            <div class="resume-grid wider">
+                <div>
+                    <span class="resume-label">Desfase calculado</span>
+                    <span class="resume-value" id="cajaDesfaseValor">$0.00</span>
+                </div>
+                <div>
+                    <span class="resume-label">Caja virtual neta del día</span>
+                    <span class="resume-value" id="cajaVirtualValor">$0.00</span>
+                </div>
+                <div>
+                    <span class="resume-label">Saldo banco reportado</span>
+                    <span class="resume-value" id="cajaSaldoBancoValor">$0.00</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button id="registrarCajaDiariaBtn" class="btn-success">
+                    <i class="fas fa-check"></i> Registrar caja diaria
+                </button>
+            </div>
+            <div class="info-block" id="cajaDiariaInfo" style="display: none;"></div>
+        </div>
+    </section>
+</div>
+
+    <div class="caja-tab-panel" data-panel="historico">
+        <div class="historico-header">
+            <div class="historico-range-group">
+                <button class="historico-range-btn active" data-historico-range="semana-actual">Semana actual</button>
+                <button class="historico-range-btn" data-historico-range="ultima-semana">Última semana</button>
+                <button class="historico-range-btn" data-historico-range="ultimo-mes">Último mes</button>
+                <button class="historico-range-btn" data-historico-range="ultimo-trimestre">Último trimestre</button>
+            </div>
+            <p id="historicoRangeLabel" class="historico-range-label">Semana actual</p>
+        </div>
+
+        <div id="historicoLoading" class="historico-loading" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Cargando histórico de cajas...</span>
+        </div>
+
+        <div id="historicoContent" class="historico-content" style="display: none;">
+            <div class="historico-summary-grid">
+                <div class="historico-card">
+                    <span class="historico-card-label">Ventas totales</span>
+                    <span class="historico-card-value" id="historicoVentasValor">$0.00</span>
+                    <span class="historico-card-delta neutral" id="historicoVentasDelta">+$0.00 (+0.0%) vs período anterior</span>
+                </div>
+                <div class="historico-card">
+                    <span class="historico-card-label">Ingresos totales</span>
+                    <span class="historico-card-value" id="historicoIngresosValor">$0.00</span>
+                    <span class="historico-card-delta neutral" id="historicoIngresosDelta">+$0.00 (+0.0%) vs período anterior</span>
+                </div>
+                <div class="historico-card">
+                    <span class="historico-card-label">Egresos totales</span>
+                    <span class="historico-card-value" id="historicoEgresosValor">$0.00</span>
+                    <span class="historico-card-delta neutral" id="historicoEgresosDelta">+$0.00 (+0.0%) vs período anterior</span>
+                </div>
+                <div class="historico-card">
+                    <span class="historico-card-label">Desfase neto</span>
+                    <span class="historico-card-value" id="historicoDesfaseValor">$0.00</span>
+                    <span class="historico-card-delta neutral" id="historicoDesfaseDelta">+$0.00 (+0.0%) vs período anterior</span>
+                </div>
+            </div>
+
+            <div id="historicoEmpty" class="historico-empty" style="display: none;">
+                <i class="fas fa-inbox"></i>
+                <p>No hay cajas diarias registradas en el período seleccionado.</p>
+            </div>
+
+            <div class="historico-comparacion">
+                <section class="historico-section">
+                    <header class="historico-section-header">
+                        <div>
+                            <h4 id="historicoActualTitulo">Período actual</h4>
+                            <span id="historicoActualRango" class="historico-range-chip"></span>
+                        </div>
+                    </header>
+                    <div class="historico-table-wrapper">
+                        <table class="historico-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ventas</th>
+                                    <th>Ingresos</th>
+                                    <th>Egresos</th>
+                                    <th>Desfase</th>
+                                    <th>Caja física</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historicoActualBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="historico-section">
+                    <header class="historico-section-header">
+                        <div>
+                            <h4 id="historicoAnteriorTitulo">Período anterior</h4>
+                            <span id="historicoAnteriorRango" class="historico-range-chip"></span>
+                        </div>
+                    </header>
+                    <div class="historico-table-wrapper">
+                        <table class="historico-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Ventas</th>
+                                    <th>Ingresos</th>
+                                    <th>Egresos</th>
+                                    <th>Desfase</th>
+                                    <th>Caja física</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historicoAnteriorBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <section class="historico-section historico-chart-section">
+                <header class="historico-section-header">
+                    <div>
+                        <h4>Evolución de ventas</h4>
+                        <span id="historicoChartLabel" class="historico-range-chip"></span>
+                    </div>
+                </header>
+                <div class="historico-chart-wrapper">
+                    <canvas id="historicoChart"></canvas>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<style>
+.caja-diaria-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px;
+    height: 100%;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    scroll-behavior: smooth;
+}
+.module-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.module-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+}
+.caja-tab-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.caja-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f1f5f9;
+    color: #1e293b;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.caja-tab:hover {
+    background: #e0ecff;
+    border-color: #bfdbfe;
+}
+.caja-tab.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
+}
+.caja-tab-panel {
+    display: none;
+    flex-direction: column;
+    gap: 24px;
+}
+.caja-tab-panel.active {
+    display: flex;
+}
+.caja-tab-panel .module-controls {
+    margin-bottom: 16px;
+}
+.historico-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.historico-range-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.historico-range-btn {
+    border: 1px solid #d0d7e2;
+    background: #ffffff;
+    color: #1f2937;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.historico-range-btn:hover {
+    background: #f1f5f9;
+}
+.historico-range-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+}
+.historico-range-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #475569;
+}
+.historico-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #dbeafe;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: #334155;
+}
+.historico-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.historico-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+.historico-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+}
+.historico-card-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.historico-card-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+.historico-card-delta {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.historico-card-delta.positive {
+    color: #15803d;
+}
+.historico-card-delta.negative {
+    color: #b91c1c;
+}
+.historico-card-delta.neutral {
+    color: #475569;
+}
+.historico-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    border: 1px dashed #cbd5f5;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475569;
+    text-align: center;
+}
+.historico-empty i {
+    font-size: 1.8rem;
+    color: #2563eb;
+}
+.historico-comparacion {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+}
+.historico-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.historico-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.historico-section-header h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #0f172a;
+}
+.historico-range-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 999px;
+}
+.historico-table-wrapper {
+    overflow-x: auto;
+}
+.historico-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.historico-table th,
+.historico-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: right;
+    white-space: nowrap;
+}
+.historico-table th:first-child,
+.historico-table td:first-child {
+    text-align: left;
+}
+.historico-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+.historico-table tbody tr.no-data {
+    color: #94a3b8;
+}
+.historico-table tbody tr.totals-row {
+    font-weight: 600;
+    background: #e0f2fe;
+    color: #0f172a;
+}
+.historico-chart-section {
+    gap: 16px;
+}
+.historico-chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 320px;
+}
+.module-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.date-select-label {
+    font-weight: 600;
+    color: #1f2937;
+}
+.date-select-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.date-select {
+    min-width: 90px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #1f2937 50%), linear-gradient(135deg, #1f2937 50%, transparent 50%);
+    background-position: calc(100% - 18px) calc(50% - 4px), calc(100% - 12px) calc(50% - 4px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 32px;
+}
+.date-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.date-select-group select::-ms-expand {
+    display: none;
+}
+.module-alerts {
+    min-height: 24px;
+}
+.module-alerts .alert {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 0;
+}
+.module-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f9fa;
+    border: 1px solid #dfe3e8;
+    padding: 10px 16px;
+    border-radius: 6px;
+    color: #4a5568;
+}
+.caja-section {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e4e7eb;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.05);
+}
+.caja-section header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid #eef1f5;
+}
+.caja-section header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.section-badge {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: #edf2ff;
+    color: #1a237e;
+}
+.section-badge.warning {
+    background: #fff4e5;
+    color: #b45309;
+}
+.section-body {
+    padding: 20px 24px 24px;
+}
+.section-badge.success {
+    background: #e7f6ec;
+    color: #0f5132;
+}
+.section-badge.neutral {
+    background: #f1f5f9;
+    color: #475569;
+}
+.form-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.form-control {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.form-control input,
+.form-control textarea {
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.95rem;
+}
+.form-control input:disabled,
+.form-control textarea:disabled {
+    background: #f8fafc;
+    color: #64748b;
+}
+.form-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+}
+.btn-primary, .btn-success {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+.btn-primary {
+    background: #2563eb;
+    color: #ffffff;
+}
+.btn-success {
+    background: #16a34a;
+    color: #ffffff;
+}
+.btn-primary:disabled,
+.btn-success:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.info-block {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #dbeafe;
+    color: #1e293b;
+}
+.info-block.warning {
+    background: #fff4e5;
+    border-color: #fb923c;
+    color: #b45309;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.info-block.warning i {
+    margin-top: 2px;
+}
+.empty-hint {
+    margin-top: 16px;
+    font-size: 0.95rem;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px dashed #cbd5f5;
+    padding: 12px 16px;
+    border-radius: 8px;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    padding: 20px 24px 24px;
+}
+.stat-card {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 16px 18px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.stat-label {
+    font-size: 0.9rem;
+    color: #475569;
+}
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+.stat-note {
+    font-size: 0.85rem;
+    color: #64748b;
+}
+.resume-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.resume-grid.wider {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.resume-label {
+    font-size: 0.9rem;
+    color: #475569;
+}
+.resume-value {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #111827;
+}
+@media (max-width: 768px) {
+    .module-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .module-controls input,
+    .module-controls button,
+    .date-select-group {
+        width: 100%;
+    }
+    .date-select-group {
+        flex-wrap: wrap;
+    }
+    .date-select {
+        flex: 1 1 calc(33.33% - 8px);
+        min-width: 0;
+        width: 100%;
+    }
+    .caja-tab-bar {
+        justify-content: flex-start;
+    }
+    .historico-range-group {
+        width: 100%;
+    }
+    .historico-summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .historico-comparacion {
+        grid-template-columns: 1fr;
+    }
+    .historico-chart-wrapper {
+        height: 260px;
+    }
+}
+
+/* Estilos para Denominaciones */
+.denominaciones-container {
+    margin-bottom: 24px;
+    padding: 24px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+.denominaciones-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+.denominaciones-header h4 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.denominaciones-group {
+    margin-bottom: 25px;
+}
+.denominaciones-group-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+}
+.denominaciones-group-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+.denominaciones-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 20px;
+}
+.denominacion-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+.denominacion-item:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.denominacion-item label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+}
+.denominacion-item input {
+    padding: 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    width: 100%;
+}
+.denominacion-item input:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+.denominacion-subtotal {
+    font-size: 0.75rem;
+    color: #2563eb;
+    font-weight: 600;
+    text-align: right;
+    margin-top: 2px;
+}
+.denominaciones-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+    padding: 15px 20px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+.denominaciones-suma {
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: #0f172a;
+}
+.input-readonly-calc {
+    background-color: #f1f5f9 !important;
+    cursor: not-allowed;
+    font-weight: 700;
+    color: #1e293b;
+    border-color: #cbd5e1 !important;
+}
+</style>
+
+<script>
+(function(){
+    "use strict";
+
+    const state = {
+        fecha: new Date(),
+        fechaISO: null,
+        resumen: null,
+        cajaInicial: null,
+        cajaDiaria: null,
+        cajaAnterior: { existe: false, registro: null },
+        vistaActiva: 'gestion',
+        historico: {
+            rango: 'semana-actual',
+            rangoInfo: null,
+            seriesActual: [],
+            seriesAnterior: [],
+            summary: {
+                actual: null,
+                anterior: null,
+                comparativo: null
+            },
+            chart: null
+        }
+    };
+    let chartJsPromise = null;
+
+    function formatDateInputValue(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function normalizeDate(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+        const base = normalizeDate(date);
+        if (!base) return null;
+        base.setDate(base.getDate() + Number(days || 0));
+        return base;
+    }
+
+    function formatShortDate(date) {
+        const safeDate = normalizeDate(date);
+        if (!safeDate) return '';
+        return safeDate.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit' });
+    }
+
+    function formatRangeDates(start, end) {
+        const inicio = normalizeDate(start);
+        const fin = normalizeDate(end);
+        if (!inicio || !fin) return '';
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+        return `${inicio.toLocaleDateString('es-EC', options)} - ${fin.toLocaleDateString('es-EC', options)}`;
+    }
+
+    function formatCurrencyDiff(value) {
+        const amount = formatCurrency(Math.abs(value || 0));
+        if (value > 0) return `+${amount}`;
+        if (value < 0) return `-${amount}`;
+        return amount;
+    }
+
+    function formatPercentDiff(value) {
+        const normalized = Number.isFinite(value) ? value : 0;
+        const absValue = Math.abs(normalized).toFixed(1);
+        if (normalized > 0) return `+${absValue}%`;
+        if (normalized < 0) return `-${absValue}%`;
+        return `${absValue}%`;
+    }
+
+    function buildSemanaActualRange(baseDate = new Date()) {
+        const today = normalizeDate(baseDate) || normalizeDate(new Date());
+        const day = today.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        const inicio = addDays(today, diff);
+        const fin = addDays(inicio, 6);
+        const anteriorFin = addDays(inicio, -1);
+        const anteriorInicio = addDays(anteriorFin, -6);
+        return {
+            actual: { inicio, fin },
+            anterior: { inicio: anteriorInicio, fin: anteriorFin },
+            actualDescripcion: 'Semana actual',
+            anteriorDescripcion: 'Semana anterior'
+        };
+    }
+
+    function buildRollingRange(dias, actualLabel, anteriorLabel) {
+        const fin = normalizeDate(new Date());
+        const inicio = addDays(fin, -(Number(dias) - 1));
+        const anteriorFin = addDays(inicio, -1);
+        const anteriorInicio = addDays(anteriorFin, -(Number(dias) - 1));
+        return {
+            actual: { inicio, fin },
+            anterior: { inicio: anteriorInicio, fin: anteriorFin },
+            actualDescripcion: actualLabel,
+            anteriorDescripcion: anteriorLabel
+        };
+    }
+
+    const HISTORICO_RANGOS = {
+        'semana-actual': {
+            label: 'Semana actual',
+            anteriorLabel: 'Semana anterior',
+            build: () => buildSemanaActualRange(new Date())
+        },
+        'ultima-semana': {
+            label: 'Última semana',
+            anteriorLabel: '7 días previos',
+            build: () => buildRollingRange(7, 'Últimos 7 días', '7 días previos')
+        },
+        'ultimo-mes': {
+            label: 'Último mes',
+            anteriorLabel: '30 días previos',
+            build: () => buildRollingRange(30, 'Últimos 30 días', '30 días previos')
+        },
+        'ultimo-trimestre': {
+            label: 'Último trimestre',
+            anteriorLabel: '90 días previos',
+            build: () => buildRollingRange(90, 'Últimos 90 días', '90 días previos')
+        }
+    };
+
+    function getHistoricoRange(rangeKey) {
+        const config = HISTORICO_RANGOS[rangeKey] || HISTORICO_RANGOS['semana-actual'];
+        const resultado = config.build();
+        const actualInicio = normalizeDate(resultado.actual.inicio);
+        const actualFin = normalizeDate(resultado.actual.fin);
+        const anteriorInicio = normalizeDate(resultado.anterior.inicio);
+        const anteriorFin = normalizeDate(resultado.anterior.fin);
+
+        return {
+            clave: rangeKey,
+            etiqueta: config.label,
+            etiquetaAnterior: config.anteriorLabel,
+            actualDescripcion: resultado.actualDescripcion || config.label,
+            anteriorDescripcion: resultado.anteriorDescripcion || config.anteriorLabel,
+            actual: {
+                inicio: actualInicio,
+                fin: actualFin,
+                inicioISO: formatDateInputValue(actualInicio),
+                finISO: formatDateInputValue(actualFin)
+            },
+            anterior: {
+                inicio: anteriorInicio,
+                fin: anteriorFin,
+                inicioISO: formatDateInputValue(anteriorInicio),
+                finISO: formatDateInputValue(anteriorFin)
+            }
+        };
+    }
+
+    function buildDailySeries(periodo, registros) {
+        const series = [];
+        if (!periodo || !periodo.inicio || !periodo.fin) return series;
+
+        const start = normalizeDate(periodo.inicio);
+        const end = normalizeDate(periodo.fin);
+        if (!start || !end) return series;
+
+        const mapa = new Map();
+        (registros || []).forEach(registro => {
+            if (registro && registro.fecha) {
+                mapa.set(registro.fecha, registro);
+            }
+        });
+
+        let cursor = start;
+        while (cursor && cursor.getTime() <= end.getTime()) {
+            const iso = formatDateInputValue(cursor);
+            const registro = mapa.get(iso) || null;
+            series.push({
+                fecha: new Date(cursor),
+                fechaISO: iso,
+                ventas: registro ? Number(registro.ventas_totales || 0) : 0,
+                ingresos: registro ? Number(registro.ingresos_total || 0) : 0,
+                egresos: registro ? Number(registro.egresos_total || 0) : 0,
+                desfase: registro ? Number(registro.desfase || 0) : 0,
+                cajaFisica: registro ? Number(registro.caja_fisica_contada || 0) : 0,
+                cajaEsperada: registro ? Number(registro.caja_fisica_esperada || 0) : 0,
+                registro
+            });
+            cursor = addDays(cursor, 1);
+        }
+
+        return series;
+    }
+
+    function sumarizarSerie(series) {
+        return (series || []).reduce((acc, item) => {
+            acc.ventas += Number(item.ventas || 0);
+            acc.ingresos += Number(item.ingresos || 0);
+            acc.egresos += Number(item.egresos || 0);
+            acc.desfase += Number(item.desfase || 0);
+            acc.cajaFisica += Number(item.cajaFisica || 0);
+            acc.cajaEsperada += Number(item.cajaEsperada || 0);
+            if (item && item.registro) {
+                acc.registros += 1;
+            }
+            return acc;
+        }, {
+            ventas: 0,
+            ingresos: 0,
+            egresos: 0,
+            desfase: 0,
+            cajaFisica: 0,
+            cajaEsperada: 0,
+            registros: 0
+        });
+    }
+
+    function calcularComparativo(resumenActual, resumenAnterior) {
+        const objetivo = {};
+        const metricas = ['ventas', 'ingresos', 'egresos', 'desfase'];
+        metricas.forEach(clave => {
+            const actual = Number(resumenActual?.[clave] || 0);
+            const anterior = Number(resumenAnterior?.[clave] || 0);
+            const diff = actual - anterior;
+            let diffPercent = 0;
+            if (anterior === 0) {
+                diffPercent = actual === 0 ? 0 : 100 * Math.sign(actual);
+            } else {
+                diffPercent = (diff / Math.abs(anterior)) * 100;
+            }
+            objetivo[clave] = {
+                actual,
+                anterior,
+                diff,
+                diffPercent
+            };
+        });
+        return objetivo;
+    }
+
+    function getDaysInMonth(year, month) {
+        return new Date(year, month, 0).getDate();
+    }
+
+    function populateYearOptions(selectedYear) {
+        const yearSelect = document.getElementById('cajaYearSelect');
+        if (!yearSelect) return;
+
+        const currentYear = new Date().getFullYear();
+        const minYear = Math.min(selectedYear, currentYear - 2);
+        const maxYear = Math.max(selectedYear, currentYear + 1);
+
+        const existingOptions = Array.from(yearSelect.options).map(opt => Number(opt.value));
+        const needsRefresh = existingOptions.length === 0 || selectedYear < Math.min(...existingOptions) || selectedYear > Math.max(...existingOptions);
+
+        if (needsRefresh) {
+            yearSelect.innerHTML = '';
+            for (let year = maxYear; year >= minYear; year -= 1) {
+                const option = document.createElement('option');
+                option.value = String(year);
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            }
+        }
+
+        if (!yearSelect.querySelector(`option[value="${selectedYear}"]`)) {
+            const option = document.createElement('option');
+            option.value = String(selectedYear);
+            option.textContent = selectedYear;
+            yearSelect.appendChild(option);
+        }
+
+        yearSelect.value = String(selectedYear);
+    }
+
+    function populateDayOptions(year, month, selectedDay) {
+        const daySelect = document.getElementById('cajaDaySelect');
+        if (!daySelect) return selectedDay || 1;
+
+        const totalDays = getDaysInMonth(year, month);
+        const safeDay = Math.min(Math.max(selectedDay || 1, 1), totalDays);
+
+        if (daySelect.options.length !== totalDays) {
+            daySelect.innerHTML = '';
+            for (let day = 1; day <= totalDays; day += 1) {
+                const option = document.createElement('option');
+                option.value = String(day);
+                option.textContent = String(day).padStart(2, '0');
+                daySelect.appendChild(option);
+            }
+        }
+
+        if (!daySelect.querySelector(`option[value="${safeDay}"]`)) {
+            const option = document.createElement('option');
+            option.value = String(safeDay);
+            option.textContent = String(safeDay).padStart(2, '0');
+            daySelect.appendChild(option);
+        }
+
+        daySelect.value = String(safeDay);
+        return safeDay;
+    }
+
+    function syncDateSelectors(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return;
+
+        const monthSelect = document.getElementById('cajaMonthSelect');
+        if (!monthSelect) return;
+
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+
+        populateYearOptions(year);
+        monthSelect.value = String(month);
+        populateDayOptions(year, month, day);
+    }
+
+    function updateDateFromSelectors({ adjustDay = false, triggerReload = true } = {}) {
+        const daySelect = document.getElementById('cajaDaySelect');
+        const monthSelect = document.getElementById('cajaMonthSelect');
+        const yearSelect = document.getElementById('cajaYearSelect');
+
+        if (!daySelect || !monthSelect || !yearSelect) {
+            showCajaAlert('error', 'No se pudo leer la fecha seleccionada.');
+            return;
+        }
+
+        const year = Number(yearSelect.value);
+        const month = Number(monthSelect.value);
+        let day = Number(daySelect.value);
+
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            showCajaAlert('warning', 'Selecciona una fecha válida.');
+            return;
+        }
+
+        const totalDays = getDaysInMonth(year, month);
+        if (!Number.isFinite(day) || day < 1 || day > totalDays || adjustDay) {
+            day = populateDayOptions(year, month, day);
+        }
+
+        const targetDate = new Date(year, month - 1, day);
+        if (Number.isNaN(targetDate.getTime())) {
+            showCajaAlert('error', 'La fecha seleccionada no es válida.');
+            return;
+        }
+
+        state.fecha = targetDate;
+        state.fechaISO = formatDateInputValue(targetDate);
+
+        if (triggerReload) {
+            loadCajaDiariaData();
+        }
+    }
+
+    function showCajaAlert(type, message) {
+        const container = document.getElementById('cajaDiariaAlerts');
+        if (!container) return;
+        if (!message) {
+            container.innerHTML = '';
+            return;
+        }
+        const classes = {
+            success: 'alert alert-success',
+            warning: 'alert alert-warning',
+            error: 'alert alert-danger',
+            info: 'alert alert-info'
+        };
+        const css = classes[type] || classes.info;
+        container.innerHTML = `<div class="${css}">${message}</div>`;
+    }
+
+    function toggleLoading(show) {
+        const loader = document.getElementById('cajaDiariaLoading');
+        if (!loader) return;
+        loader.style.display = show ? 'flex' : 'none';
+    }
+
+    function updateText(id, value, fallback = '-') {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = value != null ? value : fallback;
+    }
+
+    function getUsuarioNombre() {
+        const partes = [];
+        if (typeof window.userNombres === 'string' && window.userNombres.trim()) {
+            partes.push(window.userNombres.trim());
+        }
+        if (typeof window.userApellidos === 'string' && window.userApellidos.trim()) {
+            partes.push(window.userApellidos.trim());
+        }
+        if (partes.length === 0 && window.currentUser && window.currentUser.email) {
+            return window.currentUser.email;
+        }
+        return partes.join(' ');
+    }
+
+    async function enviarNotificacionCierreCajaDiaria(payload, resumen) {
+        try {
+            const db = getSupabaseClient();
+            if (!db) return;
+
+            const { data: ferredatos, error } = await db
+                .from('ferre_ferredatos')
+                .select('*')
+                .limit(1)
+                .single();
+
+            if (error || !ferredatos) {
+                console.error('Configuración de WhatsApp no disponible para notificaciones');
+                return;
+            }
+
+            // Formateador local
+            const format = (v) => new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD' }).format(v || 0);
+            
+            const fecha = new Date().toLocaleDateString('es-EC', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const hora = new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+
+            const vTotal = resumen.ventas.total;
+            const vEfectivo = resumen.ventas.efectivo;
+            const vTransferencia = resumen.ventas.transferencia;
+            const vCredito = resumen.ventas.credito;
+
+            const diferencia = payload.caja_fisica_contada - payload.caja_fisica_esperada;
+            const absDiferencia = Math.abs(diferencia);
+            
+            let statusEmoji = '✅';
+            let statusText = 'CUADRADO';
+            
+            if (absDiferencia > 0.01) {
+                if (diferencia < 0) {
+                    statusEmoji = '⚠️';
+                    statusText = 'FALTANTE';
+                } else {
+                    statusEmoji = '🔍';
+                    statusText = 'SOBRANTE';
+                }
+            }
+
+            const texto = `🔒 *CIERRE DE CAJA DIARIA*
+
+${statusEmoji} *Estado:* ${statusText}
+
+📅 *Fecha:* ${fecha}
+🕐 *Hora:* ${hora}
+
+💰 *Resumen Financiero*
+━━━━━━━━━━━━━━━━━━
+📈 *Venta Total:* ${format(vTotal)}
+💵 *Ventas Físicas:* ${format(vEfectivo)}
+💳 *Ventas Transferencia:* ${format(vTransferencia)}
+📝 *Ventas a Crédito:* ${format(vCredito)}
+
+📊 *Movimientos de Caja*
+━━━━━━━━━━━━━━━━━━
+📥 *Total Ingresos:* ${format(payload.ingresos_total)}
+📤 *Total Egresos:* ${format(payload.egresos_total)}
+
+⚖️ *Cuadre de Efectivo*
+━━━━━━━━━━━━━━━━━━
+🏠 *Caja Final (Esperada):* ${format(payload.caja_fisica_esperada)}
+💵 *Caja Física (Contado):* ${format(payload.caja_fisica_contada)}
+⚖️ *Diferencia:* ${format(diferencia)}
+
+🏦 *Información Bancaria*
+━━━━━━━━━━━━━━━━━━
+💰 *Movimiento Virtual:* ${format(payload.caja_virtual_neta)}
+🏦 *Saldo Final en Banco:* ${format(payload.saldo_banco_final)}
+
+👤 *Responsable:* ${payload.cerrado_por_nombre}
+_Sistema de Gestión Ferrisoluciones_`;
+
+            const url = `https://api.luispintasolutions.com/message/sendText/${ferredatos.instance}`;
+
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'apikey': ferredatos.apikey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    number: ferredatos.number,
+                    text: texto,
+                    delay: 1000,
+                    linkPreview: false
+                })
+            });
+
+        } catch (error) {
+            console.error('Error enviando notificación de cierre:', error);
+        }
+    }
+
+    function parseMonto(value) {
+        if (value === '' || value === null || value === undefined) return 0;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : 0;
+    }
+
+    function updateHistoricoRangeButtons() {
+        document.querySelectorAll('[data-historico-range]').forEach(btn => {
+            const isActive = btn.dataset.historicoRange === state.historico.rango;
+            btn.classList.toggle('active', isActive);
+        });
+    }
+
+    function toggleHistoricoLoading(show) {
+        const loader = document.getElementById('historicoLoading');
+        const content = document.getElementById('historicoContent');
+        if (loader) {
+            loader.style.display = show ? 'flex' : 'none';
+        }
+        if (content) {
+            content.style.display = show ? 'none' : 'flex';
+        }
+    }
+
+    function switchTab(tabKey) {
+        if (!tabKey || state.vistaActiva === tabKey) return;
+
+        document.querySelectorAll('.caja-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabKey);
+        });
+        document.querySelectorAll('.caja-tab-panel').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.panel === tabKey);
+        });
+
+        state.vistaActiva = tabKey;
+
+        if (tabKey === 'historico') {
+            const subtitulo = document.getElementById('cajaDiariaSubtitulo');
+            if (subtitulo) {
+                subtitulo.textContent = 'Analiza las cajas diarias registradas y compara periodos.';
+            }
+            if (!state.historico.seriesActual.length) {
+                loadHistoricoData();
+            } else if (state.historico.rangoInfo) {
+                renderHistorico(state.historico.rangoInfo);
+            }
+        } else if (tabKey === 'gestion') {
+            renderHeader();
+        }
+    }
+
+    async function loadCajaDiariaData() {
+        if (!(state.fecha instanceof Date) || Number.isNaN(state.fecha.getTime())) {
+            showCajaAlert('warning', 'Selecciona una fecha válida.');
+            return;
+        }
+
+        const targetDate = new Date(state.fecha.getFullYear(), state.fecha.getMonth(), state.fecha.getDate());
+        const isoValue = formatDateInputValue(targetDate);
+
+        state.fecha = targetDate;
+        state.fechaISO = isoValue;
+
+        syncDateSelectors(targetDate);
+
+        toggleLoading(true);
+        showCajaAlert('info', `Calculando movimientos para el ${formatDate(targetDate)}...`);
+
+        try {
+            const [resumen, cajaInicial, cajaDiaria, cajaAnterior] = await Promise.all([
+                calcularResumenDiario(targetDate),
+                getCajaInicialPorFecha(state.fechaISO),
+                getCajaDiariaPorFecha(state.fechaISO),
+                existeCajaDiariaAnterior(state.fechaISO)
+            ]);
+
+            state.resumen = resumen;
+            state.cajaInicial = cajaInicial;
+            state.cajaDiaria = cajaDiaria;
+            state.cajaAnterior = cajaAnterior;
+
+            renderAll();
+            showCajaAlert('success', `Datos actualizados para el ${formatDate(state.fecha)}.`);
+        } catch (error) {
+            console.error('Error al cargar caja diaria:', error);
+            showCajaAlert('error', error.message || 'No se pudieron obtener los datos de la caja diaria.');
+        } finally {
+            toggleLoading(false);
+        }
+    }
+
+    async function loadHistoricoData({ showLoading = true } = {}) {
+        const rangoInfo = getHistoricoRange(state.historico.rango);
+        state.historico.rangoInfo = rangoInfo;
+        updateHistoricoRangeButtons();
+
+        if (showLoading) {
+            toggleHistoricoLoading(true);
+        }
+
+        try {
+            const [actualRegistros, anteriorRegistros] = await Promise.all([
+                getCajaDiariaPorRango(rangoInfo.actual.inicioISO, rangoInfo.actual.finISO),
+                getCajaDiariaPorRango(rangoInfo.anterior.inicioISO, rangoInfo.anterior.finISO)
+            ]);
+
+            const seriesActual = buildDailySeries(rangoInfo.actual, actualRegistros);
+            const seriesAnterior = buildDailySeries(rangoInfo.anterior, anteriorRegistros);
+
+            const resumenActual = sumarizarSerie(seriesActual);
+            const resumenAnterior = sumarizarSerie(seriesAnterior);
+            const comparativo = calcularComparativo(resumenActual, resumenAnterior);
+
+            state.historico.seriesActual = seriesActual;
+            state.historico.seriesAnterior = seriesAnterior;
+            state.historico.summary = {
+                actual: resumenActual,
+                anterior: resumenAnterior,
+                comparativo
+            };
+
+            toggleHistoricoLoading(false);
+            renderHistorico(rangoInfo);
+        } catch (error) {
+            console.error('Error al cargar histórico de cajas:', error);
+            toggleHistoricoLoading(false);
+            showCajaAlert('error', 'No se pudo cargar el histórico de cajas diarias. Intenta nuevamente.');
+        }
+    }
+
+    function renderAll() {
+        if (state.vistaActiva === 'gestion') {
+            renderHeader();
+        }
+        renderCajaInicial();
+        renderResumen();
+        renderCierre();
+    }
+
+    function renderHeader() {
+        const subtitulo = document.getElementById('cajaDiariaSubtitulo');
+        if (!subtitulo || state.vistaActiva !== 'gestion') return;
+        subtitulo.textContent = `Jornada del ${formatDate(state.fecha)}. Consulta y registra la apertura/cierre de caja.`;
+    }
+
+    function renderCajaInicial() {
+        const estado = document.getElementById('cajaInicialEstado');
+        const info = document.getElementById('cajaInicialInfo');
+        const emptyHint = document.getElementById('cajaInicialEmpty');
+        const registro = state.cajaInicial;
+
+        if (registro) {
+            if (estado) {
+                estado.textContent = 'Registrada';
+                estado.classList.remove('warning', 'neutral');
+                estado.classList.add('success');
+            }
+            if (info) {
+                const detalles = [];
+                if (registro.registrado_por_nombre) {
+                    detalles.push(`<strong>Registrado por:</strong> ${registro.registrado_por_nombre}`);
+                } else if (registro.registrado_por_email) {
+                    detalles.push(`<strong>Registrado por:</strong> ${registro.registrado_por_email}`);
+                }
+                if (registro.updated_at) {
+                    detalles.push(`<strong>Actualizado:</strong> ${formatDateTime(registro.updated_at)}`);
+                }
+                detalles.push(`<strong>Monto:</strong> ${formatCurrency(registro.monto_inicial)}`);
+                if (registro.observaciones) {
+                    detalles.push(`<strong>Notas:</strong> ${registro.observaciones}`);
+                }
+                info.innerHTML = detalles.join('<br>');
+                info.style.display = 'block';
+            }
+            if (emptyHint) {
+                emptyHint.style.display = 'none';
+            }
+        } else {
+            if (estado) {
+                estado.textContent = 'Sin registrar';
+                estado.classList.remove('success', 'warning');
+                estado.classList.add('neutral');
+            }
+            if (info) {
+                info.style.display = 'none';
+                info.innerHTML = '';
+            }
+            if (emptyHint) {
+                emptyHint.style.display = 'block';
+            }
+        }
+    }
+
+    function renderResumen() {
+        const resumen = state.resumen;
+        const badge = document.getElementById('resumenMovimientosBadge');
+
+        if (!resumen) {
+            updateText('statVentasTotales', formatCurrency(0));
+            updateText('statGananciaVentas', 'Ganancia: $0.00');
+            updateText('statIngresosTotales', formatCurrency(0));
+            updateText('statPagosCxC', formatCurrency(0));
+            updateText('statEgresosTotales', formatCurrency(0));
+            updateText('statGastos', formatCurrency(0));
+            updateText('statTransferNeto', formatCurrency(0));
+            updateText('statTransferIngresos', formatCurrency(0));
+            updateText('statTransferEgresos', formatCurrency(0));
+            updateText('statCajaFisicaMovimiento', formatCurrency(0));
+            updateText('statVentasEfectivo', formatCurrency(0));
+            updateText('statVentasTransferencia', formatCurrency(0));
+            updateText('statCajaVirtual', formatCurrency(0));
+            updateText('statSaldoBanco', formatCurrency(0));
+            if (badge) {
+                badge.textContent = 'Sin datos';
+                badge.classList.remove('success');
+                badge.classList.add('neutral');
+            }
+            return;
+        }
+
+        updateText('statVentasTotales', formatCurrency(resumen.ventas.total));
+        updateText('statGananciaVentas', `Ganancia: ${formatCurrency(resumen.ventas.ganancia || 0)}`);
+        updateText('statIngresosTotales', formatCurrency(resumen.ingresos.total));
+        updateText('statPagosCxC', formatCurrency(resumen.ingresos.pagosCxC));
+        updateText('statEgresosTotales', formatCurrency(resumen.egresos.total));
+        updateText('statGastos', formatCurrency(resumen.egresos.gastos));
+        updateText('statTransferNeto', formatCurrency(resumen.transferencias.neto));
+        updateText('statTransferIngresos', formatCurrency(resumen.transferencias.totalIngresos));
+        updateText('statTransferEgresos', formatCurrency(resumen.transferencias.totalEgresos));
+        updateText('statCajaFisicaMovimiento', formatCurrency(resumen.caja.fisica.total));
+        updateText('statVentasEfectivo', formatCurrency(resumen.caja.fisica.ingresos.ventas));
+        updateText('statVentasTransferencia', formatCurrency(resumen.ventas.transferencia));
+        updateText('statCajaVirtual', formatCurrency(resumen.caja.virtual.movimientoHoy));
+        updateText('statSaldoBanco', formatCurrency(resumen.caja.virtual.saldoActual));
+
+        if (badge) {
+            const totalMovimientos = Number(resumen.ingresos.cantidad || 0) + Number(resumen.egresos.cantidad || 0) + Number(resumen.ventas.cantidad || 0);
+            badge.textContent = `${totalMovimientos} movimientos`;
+            badge.classList.remove('neutral');
+            badge.classList.add('success');
+        }
+    }
+
+    function getCajaEsperada() {
+        const inicial = state.cajaInicial ? parseMonto(state.cajaInicial.monto_inicial) : 0;
+        const movimientoFisico = state.resumen ? parseMonto(state.resumen.caja.fisica.total) : 0;
+        
+        // La caja esperada física solo debe contemplar el dinero en efectivo.
+        // El movimientoFisico ya calcula (Ventas Efectivo + Pagos CxC Efectivo) - (Proveedores Efectivo + Gastos)
+        // Por lo tanto, no necesitamos restar las transferencias manuales aquí, ya que nunca se sumaron al movimiento físico.
+        return inicial + movimientoFisico;
+    }
+
+    function actualizarDesfasePreview() {
+        const input = document.getElementById('cajaCierreContado');
+        if (!input) return;
+        const contado = parseMonto(input.value);
+        const esperada = getCajaEsperada();
+        
+        // Desfase = Dinero Contado - Caja Esperada
+        // Las transferencias manuales ya se restaron de la caja esperada en el backend
+        updateText('cajaDesfaseValor', formatCurrency(contado - esperada));
+    }
+
+    function actualizarSumaDenominaciones() {
+        const inputs = document.querySelectorAll('.denominacion-input');
+        let total = 0;
+        
+        inputs.forEach(input => {
+            const cantidad = parseInt(input.value) || 0;
+            const valor = parseFloat(input.dataset.valor) || 0;
+            const subtotal = cantidad * valor;
+            total += subtotal;
+            
+            // Actualizar subtotal individual
+            const subtotalEl = document.getElementById(`subtotal_${input.id}`);
+            if (subtotalEl) {
+                subtotalEl.textContent = formatCurrency(subtotal);
+            }
+        });
+        
+        const sumaEl = document.getElementById('sumaDenominacionesValor');
+        if (sumaEl) {
+            sumaEl.textContent = formatCurrency(total);
+        }
+        
+        // Actualizar el input de total contado si no tiene clase de bloqueo
+        const inputContado = document.getElementById('cajaCierreContado');
+        if (inputContado && !state.cajaDiaria) {
+            inputContado.value = total.toFixed(2);
+            actualizarDesfasePreview();
+        }
+    }
+
+    function renderCierre() {
+        const tieneCierre = Boolean(state.cajaDiaria);
+        const resumen = state.resumen;
+        const inicial = state.cajaInicial ? parseMonto(state.cajaInicial.monto_inicial) : 0;
+        const movimientoFisico = resumen ? parseMonto(resumen.caja.fisica.total) : 0;
+        const esperada = getCajaEsperada();
+        const netoVirtual = resumen ? parseMonto(resumen.caja.virtual.movimientoHoy) : 0;
+        const saldoBanco = resumen ? parseMonto(resumen.caja.virtual.saldoActual) : 0;
+
+        updateText('cajaInicialValor', formatCurrency(inicial));
+        updateText('cajaMovimientosFisicos', formatCurrency(movimientoFisico));
+        updateText('cajaEsperadaValor', formatCurrency(esperada));
+        updateText('cajaVirtualValor', formatCurrency(netoVirtual));
+        updateText('cajaSaldoBancoValor', formatCurrency(saldoBanco));
+
+        const inputContado = document.getElementById('cajaCierreContado');
+        const notas = document.getElementById('cajaCierreNotas');
+        const btn = document.getElementById('registrarCajaDiariaBtn');
+        const info = document.getElementById('cajaDiariaInfo');
+        const estado = document.getElementById('cajaCierreEstado');
+        let bloqueoMensaje = null;
+
+        if (!inputContado || !notas || !btn) return;
+
+        if (tieneCierre) {
+            inputContado.value = Number(state.cajaDiaria.caja_fisica_contada || 0).toFixed(2);
+            notas.value = state.cajaDiaria.observaciones || '';
+            
+            // Populear denominaciones si existen
+            const dens = ['billet_100', 'billet_50', 'billet_20', 'billet_10', 'billet_5', 'billet_2', 'billet_1',
+                          'moneda_1', 'moneda_050', 'moneda_025', 'moneda_010', 'moneda_005', 'moneda_001'];
+            
+            dens.forEach(key => {
+                const el = document.getElementById(key);
+                if (el) {
+                    el.value = state.cajaDiaria[key] || 0;
+                    el.disabled = true;
+                }
+            });
+            actualizarSumaDenominaciones();
+
+            updateText('cajaDesfaseValor', formatCurrency(state.cajaDiaria.desfase || 0));
+            if (estado) {
+                estado.textContent = 'Registrada';
+                estado.classList.remove('warning');
+                estado.classList.add('success');
+            }
+            if (info) {
+                info.classList.remove('warning');
+                const detalles = [];
+                if (state.cajaDiaria.cerrado_por_nombre) {
+                    detalles.push(`<strong>Registrado por:</strong> ${state.cajaDiaria.cerrado_por_nombre}`);
+                } else if (state.cajaDiaria.cerrado_por_email) {
+                    detalles.push(`<strong>Registrado por:</strong> ${state.cajaDiaria.cerrado_por_email}`);
+                }
+                if (state.cajaDiaria.updated_at) {
+                    detalles.push(`<strong>Actualizado:</strong> ${formatDateTime(state.cajaDiaria.updated_at)}`);
+                }
+                detalles.push(`<strong>Caja contada:</strong> ${formatCurrency(state.cajaDiaria.caja_fisica_contada)}`);
+                detalles.push(`<strong>Desfase:</strong> ${formatCurrency(state.cajaDiaria.desfase)}`);
+                info.innerHTML = detalles.join('<br>');
+                info.style.display = 'block';
+            }
+        } else {
+            inputContado.value = '';
+            notas.value = '';
+
+            // Limpiar y habilitar denominaciones
+            const dens = ['billet_100', 'billet_50', 'billet_20', 'billet_10', 'billet_5', 'billet_2', 'billet_1',
+                          'moneda_1', 'moneda_050', 'moneda_025', 'moneda_010', 'moneda_005', 'moneda_001'];
+            dens.forEach(key => {
+                const el = document.getElementById(key);
+                if (el) {
+                    el.value = '';
+                    el.disabled = false;
+                }
+            });
+            actualizarSumaDenominaciones();
+
+            updateText('cajaDesfaseValor', formatCurrency(0));
+            if (estado) {
+                estado.textContent = 'Pendiente';
+                estado.classList.remove('success');
+                estado.classList.add('warning');
+            }
+            if (info) {
+                info.classList.remove('warning');
+                info.style.display = 'none';
+                info.innerHTML = '';
+            }
+
+            if (!state.cajaInicial) {
+                bloqueoMensaje = 'Registra la caja inicial desde el punto de venta antes de cerrar la jornada.';
+            } else if (!state.cajaAnterior || !state.cajaAnterior.existe) {
+                bloqueoMensaje = 'No existe una caja diaria anterior. Registra el cierre previo antes de continuar.';
+            }
+        }
+
+        if (!tieneCierre && bloqueoMensaje && info) {
+            info.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>${bloqueoMensaje}</span>`;
+            info.classList.add('warning');
+            info.style.display = 'flex';
+        }
+
+        inputContado.disabled = tieneCierre;
+        notas.disabled = tieneCierre;
+        const debeDeshabilitarBtn = tieneCierre || Boolean(bloqueoMensaje);
+        btn.disabled = debeDeshabilitarBtn;
+        btn.title = debeDeshabilitarBtn && bloqueoMensaje ? bloqueoMensaje : '';
+
+        actualizarDesfasePreview();
+    }
+
+    function renderHistorico(rangoInfo) {
+        if (!rangoInfo) return;
+
+        const contenido = document.getElementById('historicoContent');
+        if (contenido) {
+            contenido.style.display = 'flex';
+        }
+
+        const subtitulo = document.getElementById('cajaDiariaSubtitulo');
+        if (subtitulo && state.vistaActiva === 'historico') {
+            subtitulo.textContent = `${rangoInfo.etiqueta}: ${formatRangeDates(rangoInfo.actual.inicio, rangoInfo.actual.fin)} · Comparado con ${rangoInfo.anteriorDescripcion}`;
+        }
+
+        const rangoLabel = document.getElementById('historicoRangeLabel');
+        if (rangoLabel) {
+            rangoLabel.textContent = `${rangoInfo.etiqueta}: ${formatRangeDates(rangoInfo.actual.inicio, rangoInfo.actual.fin)}`;
+        }
+
+        const actualTitulo = document.getElementById('historicoActualTitulo');
+        if (actualTitulo) {
+            actualTitulo.textContent = rangoInfo.actualDescripcion;
+        }
+
+        const anteriorTitulo = document.getElementById('historicoAnteriorTitulo');
+        if (anteriorTitulo) {
+            anteriorTitulo.textContent = rangoInfo.anteriorDescripcion;
+        }
+
+        const actualChip = document.getElementById('historicoActualRango');
+        if (actualChip) {
+            actualChip.textContent = formatRangeDates(rangoInfo.actual.inicio, rangoInfo.actual.fin);
+        }
+
+        const anteriorChip = document.getElementById('historicoAnteriorRango');
+        if (anteriorChip) {
+            anteriorChip.textContent = formatRangeDates(rangoInfo.anterior.inicio, rangoInfo.anterior.fin);
+        }
+
+        const chartLabel = document.getElementById('historicoChartLabel');
+        if (chartLabel) {
+            chartLabel.textContent = `${formatRangeDates(rangoInfo.actual.inicio, rangoInfo.actual.fin)} vs ${formatRangeDates(rangoInfo.anterior.inicio, rangoInfo.anterior.fin)}`;
+        }
+
+        renderHistoricoSummary();
+        renderHistoricoTables();
+        renderHistoricoChart().catch(error => console.error('Error al renderizar el gráfico histórico:', error));
+    }
+
+    function renderHistoricoSummary() {
+        const resumenActual = state.historico.summary?.actual || { ventas: 0, ingresos: 0, egresos: 0, desfase: 0, cajaFisica: 0, registros: 0 };
+        const resumenAnterior = state.historico.summary?.anterior || { ventas: 0, ingresos: 0, egresos: 0, desfase: 0, cajaFisica: 0, registros: 0 };
+        const comparativo = state.historico.summary?.comparativo || calcularComparativo(resumenActual, resumenAnterior);
+
+        updateHistoricoMetric('historicoVentasValor', 'historicoVentasDelta', comparativo.ventas);
+        updateHistoricoMetric('historicoIngresosValor', 'historicoIngresosDelta', comparativo.ingresos);
+        updateHistoricoMetric('historicoEgresosValor', 'historicoEgresosDelta', comparativo.egresos);
+        updateHistoricoMetric('historicoDesfaseValor', 'historicoDesfaseDelta', comparativo.desfase);
+
+        const empty = document.getElementById('historicoEmpty');
+        if (empty) {
+            empty.style.display = (resumenActual.registros || 0) > 0 ? 'none' : 'flex';
+        }
+    }
+
+    function updateHistoricoMetric(valueId, deltaId, metric) {
+        const valueEl = document.getElementById(valueId);
+        const deltaEl = document.getElementById(deltaId);
+        const datos = metric || { actual: 0, diff: 0, diffPercent: 0 };
+
+        if (valueEl) {
+            valueEl.textContent = formatCurrency(datos.actual || 0);
+        }
+
+        if (deltaEl) {
+            deltaEl.classList.remove('positive', 'negative', 'neutral');
+            const diff = datos.diff || 0;
+            const percent = datos.diffPercent || 0;
+            const clase = diff > 0 ? 'positive' : diff < 0 ? 'negative' : 'neutral';
+            deltaEl.classList.add(clase);
+            deltaEl.textContent = `${formatCurrencyDiff(diff)} (${formatPercentDiff(percent)}) vs período anterior`;
+        }
+    }
+
+    function renderHistoricoTables() {
+        renderHistoricoTableRows('historicoActualBody', state.historico.seriesActual, state.historico.summary?.actual);
+        renderHistoricoTableRows('historicoAnteriorBody', state.historico.seriesAnterior, state.historico.summary?.anterior);
+    }
+
+    function renderHistoricoTableRows(tbodyId, series, resumen) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(series) || series.length === 0) {
+            const row = document.createElement('tr');
+            row.classList.add('no-data');
+            const cell = document.createElement('td');
+            cell.colSpan = 6;
+            cell.textContent = 'Sin registros para este período.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+            return;
+        }
+
+        series.forEach(item => {
+            const row = document.createElement('tr');
+            if (!item || !item.registro) {
+                row.classList.add('no-data');
+            }
+            row.innerHTML = `
+                <td>${formatDate(item.fecha)}</td>
+                <td>${formatCurrency(item.ventas)}</td>
+                <td>${formatCurrency(item.ingresos)}</td>
+                <td>${formatCurrency(item.egresos)}</td>
+                <td>${formatCurrency(item.desfase)}</td>
+                <td>${formatCurrency(item.cajaFisica)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        const totalsRow = document.createElement('tr');
+        totalsRow.classList.add('totals-row');
+        totalsRow.innerHTML = `
+            <td>Total</td>
+            <td>${formatCurrency(resumen?.ventas || 0)}</td>
+            <td>${formatCurrency(resumen?.ingresos || 0)}</td>
+            <td>${formatCurrency(resumen?.egresos || 0)}</td>
+            <td>${formatCurrency(resumen?.desfase || 0)}</td>
+            <td>${formatCurrency(resumen?.cajaFisica || 0)}</td>
+        `;
+        tbody.appendChild(totalsRow);
+    }
+
+    async function renderHistoricoChart() {
+        const canvas = document.getElementById('historicoChart');
+        if (!canvas) return;
+
+        const labels = state.historico.seriesActual.map(item => formatShortDate(item.fecha));
+        const actualData = state.historico.seriesActual.map(item => Number(item.ventas || 0));
+        const anteriorData = state.historico.seriesAnterior.map(item => Number(item.ventas || 0));
+        const promedio = actualData.length ? actualData.reduce((sum, val) => sum + val, 0) / actualData.length : 0;
+        const promedioData = actualData.map(() => Number(promedio.toFixed(2)));
+
+        await ensureChartJs();
+
+        if (state.historico.chart) {
+            state.historico.chart.destroy();
+        }
+
+        state.historico.chart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Período seleccionado',
+                        data: actualData,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        fill: true
+                    },
+                    {
+                        label: 'Período anterior',
+                        data: anteriorData,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.12)',
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        borderDash: [6, 4],
+                        fill: false
+                    },
+                    {
+                        label: 'Promedio período actual',
+                        data: promedioData,
+                        borderColor: '#0f172a',
+                        borderWidth: 1.5,
+                        tension: 0,
+                        pointRadius: 0,
+                        borderDash: [4, 4],
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(context) {
+                                const value = formatCurrency(context.parsed.y || 0);
+                                const datasetLabel = context.dataset.label || '';
+                                if (context.datasetIndex === 1) {
+                                    const previo = state.historico.seriesAnterior[context.dataIndex];
+                                    const fechaTexto = previo ? formatShortDate(previo.fecha) : '';
+                                    return `${datasetLabel}: ${value}${fechaTexto ? ` (${fechaTexto})` : ''}`;
+                                }
+                                return `${datasetLabel}: ${value}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback(value) {
+                                return formatCurrency(value);
+                            }
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function ensureChartJs() {
+        if (window.Chart) {
+            return Promise.resolve();
+        }
+        if (chartJsPromise) {
+            return chartJsPromise;
+        }
+
+        chartJsPromise = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('No se pudo cargar Chart.js'));
+            document.head.appendChild(script);
+        });
+
+        return chartJsPromise;
+    }
+
+    async function onRegistrarCajaDiaria() {
+        if (state.cajaDiaria) {
+            showCajaAlert('warning', 'Ya existe un registro de caja diaria para esta fecha.');
+            return;
+        }
+
+        if (!state.cajaInicial) {
+            showCajaAlert('warning', 'Registra la caja inicial antes de cerrar la jornada.');
+            return;
+        }
+
+        if (!state.cajaAnterior || !state.cajaAnterior.existe) {
+            showCajaAlert('warning', 'No existe una caja diaria anterior. Registra el cierre previo antes de continuar.');
+            return;
+        }
+
+        const inputContado = document.getElementById('cajaCierreContado');
+        const notas = document.getElementById('cajaCierreNotas');
+        if (!inputContado) return;
+
+        const contado = parseFloat(inputContado.value);
+        if (Number.isNaN(contado) || contado < 0) {
+            showCajaAlert('warning', 'Ingresa el efectivo contado al cierre.');
+            return;
+        }
+
+        const resumen = state.resumen;
+        if (!resumen) {
+            showCajaAlert('error', 'No se pudo obtener el resumen de movimientos para la fecha seleccionada.');
+            return;
+        }
+
+        const payload = {
+            fecha: state.fechaISO,
+            caja_inicial_id: state.cajaInicial.id,
+            ventas_totales: Number(resumen.ventas.total || 0),
+            ventas_ganancia: Number(resumen.ventas.ganancia || 0),
+            ingresos_total: Number(resumen.ingresos.total || 0),
+            egresos_total: Number(resumen.egresos.total || 0),
+            pagos_cxc_total: Number(resumen.ingresos.pagosCxC || 0),
+            transferencias_ingresos: Number(resumen.transferencias.totalIngresos || 0),
+            transferencias_egresos: Number(resumen.transferencias.totalEgresos || 0),
+            pagos_proveedores_total: Number(resumen.egresos.proveedores || 0),
+            gastos_total: Number(resumen.egresos.gastos || 0),
+            caja_fisica_movimiento: Number(resumen.caja.fisica.total || 0),
+            caja_fisica_esperada: Number(getCajaEsperada() || 0),
+            caja_fisica_contada: Number(contado.toFixed(2)),
+            caja_virtual_neta: Number(resumen.caja.virtual.movimientoHoy || 0),
+            saldo_banco_final: Number(resumen.caja.virtual.saldoActual || 0),
+            // Denominaciones
+            billet_100: parseInt(document.getElementById('billet_100').value) || 0,
+            billet_50: parseInt(document.getElementById('billet_50').value) || 0,
+            billet_20: parseInt(document.getElementById('billet_20').value) || 0,
+            billet_10: parseInt(document.getElementById('billet_10').value) || 0,
+            billet_5: parseInt(document.getElementById('billet_5').value) || 0,
+            billet_2: parseInt(document.getElementById('billet_2').value) || 0,
+            billet_1: parseInt(document.getElementById('billet_1').value) || 0,
+            moneda_1: parseInt(document.getElementById('moneda_1').value) || 0,
+            moneda_050: parseInt(document.getElementById('moneda_050').value) || 0,
+            moneda_025: parseInt(document.getElementById('moneda_025').value) || 0,
+            moneda_010: parseInt(document.getElementById('moneda_010').value) || 0,
+            moneda_005: parseInt(document.getElementById('moneda_005').value) || 0,
+            moneda_001: parseInt(document.getElementById('moneda_001').value) || 0,
+            observaciones: notas ? notas.value.trim() : null,
+            cerrado_por: window.currentUser ? window.currentUser.id : null,
+            cerrado_por_email: window.currentUser ? window.currentUser.email : null,
+            cerrado_por_nombre: getUsuarioNombre()
+        };
+
+        try {
+            await crearCajaDiariaRegistro(payload);
+            showCajaAlert('success', 'Caja diaria registrada correctamente.');
+            
+            // Enviar notificación de cierre por WhatsApp
+            enviarNotificacionCierreCajaDiaria(payload, resumen);
+            
+            await loadCajaDiariaData();
+        } catch (error) {
+            console.error('Error al registrar caja diaria:', error);
+            showCajaAlert('error', error.message || 'No se pudo registrar la caja diaria.');
+        }
+    }
+
+    function setupEventListeners() {
+        const daySelect = document.getElementById('cajaDaySelect');
+        const monthSelect = document.getElementById('cajaMonthSelect');
+        const yearSelect = document.getElementById('cajaYearSelect');
+        const reloadBtn = document.getElementById('cajaReloadBtn');
+        const btnCajaDiaria = document.getElementById('registrarCajaDiariaBtn');
+        const inputContado = document.getElementById('cajaCierreContado');
+        const tabs = document.querySelectorAll('.caja-tab');
+        const historicoRangeButtons = document.querySelectorAll('[data-historico-range]');
+
+        if (daySelect) {
+            daySelect.addEventListener('change', () => {
+                updateDateFromSelectors({ triggerReload: true });
+            });
+        }
+        if (monthSelect) {
+            monthSelect.addEventListener('change', () => {
+                updateDateFromSelectors({ adjustDay: true, triggerReload: true });
+            });
+        }
+        if (yearSelect) {
+            yearSelect.addEventListener('change', () => {
+                updateDateFromSelectors({ adjustDay: true, triggerReload: true });
+            });
+        }
+        if (reloadBtn) {
+            reloadBtn.addEventListener('click', () => {
+                loadCajaDiariaData();
+            });
+        }
+        if (btnCajaDiaria) {
+            btnCajaDiaria.addEventListener('click', onRegistrarCajaDiaria);
+        }
+        if (inputContado) {
+            inputContado.addEventListener('input', actualizarDesfasePreview);
+        }
+        
+        // Listeners para denominaciones
+        document.querySelectorAll('.denominacion-input').forEach(input => {
+            input.addEventListener('input', actualizarSumaDenominaciones);
+        });
+
+        if (tabs.length) {
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.dataset.tab;
+                    if (target) {
+                        switchTab(target);
+                    }
+                });
+            });
+        }
+        if (historicoRangeButtons.length) {
+            historicoRangeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const nuevoRango = button.dataset.historicoRange;
+                    if (!nuevoRango || state.historico.rango === nuevoRango) {
+                        return;
+                    }
+                    state.historico.rango = nuevoRango;
+                    loadHistoricoData();
+                });
+            });
+        }
+    }
+
+    window.initCajaDiaria = function initCajaDiaria() {
+        const hoy = new Date();
+        state.fecha = hoy;
+        state.fechaISO = formatDateInputValue(hoy);
+
+        syncDateSelectors(hoy);
+        setupEventListeners();
+        loadCajaDiariaData();
+    };
+})();
+</script>
