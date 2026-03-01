@@ -75,7 +75,7 @@
             <div class="stat-card">
                 <span class="stat-label">Ingresos</span>
                 <span class="stat-value" id="statIngresosTotales">$0.00</span>
-                <span class="stat-note">Pagos CxC: <span id="statPagosCxC">$0.00</span></span>
+                <span class="stat-note">CxC anotadas: <span id="statCreditosOtorgados">$0.00</span> · Pagos CxC: <span id="statPagosCxC">$0.00</span></span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Egresos</span>
@@ -1668,6 +1668,7 @@ _Sistema de Gestión Ferrisoluciones_`;
             updateText('statVentasTotales', formatCurrency(0));
             updateText('statGananciaVentas', 'Ganancia: $0.00');
             updateText('statIngresosTotales', formatCurrency(0));
+            updateText('statCreditosOtorgados', formatCurrency(0));
             updateText('statPagosCxC', formatCurrency(0));
             updateText('statEgresosTotales', formatCurrency(0));
             updateText('statGastos', formatCurrency(0));
@@ -1690,6 +1691,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('statVentasTotales', formatCurrency(resumen.ventas.total));
         updateText('statGananciaVentas', `Ganancia: ${formatCurrency(resumen.ventas.ganancia || 0)}`);
         updateText('statIngresosTotales', formatCurrency(resumen.ingresos.total));
+        updateText('statCreditosOtorgados', formatCurrency(resumen.ingresos.creditosOtorgados || 0));
         updateText('statPagosCxC', formatCurrency(resumen.ingresos.pagosCxC));
         updateText('statEgresosTotales', formatCurrency(resumen.egresos.total));
         updateText('statGastos', formatCurrency(resumen.egresos.gastos));
@@ -1713,11 +1715,12 @@ _Sistema de Gestión Ferrisoluciones_`;
     function getCajaEsperada() {
         const inicial = state.cajaInicial ? parseMonto(state.cajaInicial.monto_inicial) : 0;
         const movimientoFisico = state.resumen ? parseMonto(state.resumen.caja.fisica.total) : 0;
+        const creditosOtorgados = state.resumen ? parseMonto(state.resumen.ingresos.creditosOtorgados || 0) : 0;
         
-        // La caja esperada física solo debe contemplar el dinero en efectivo.
-        // El movimientoFisico ya calcula (Ventas Efectivo + Pagos CxC Efectivo) - (Proveedores Efectivo + Gastos)
-        // Por lo tanto, no necesitamos restar las transferencias manuales aquí, ya que nunca se sumaron al movimiento físico.
-        return inicial + movimientoFisico;
+        // Regla de negocio: las CxC se consideran ingreso contable,
+        // pero no efectivo disponible en caja física.
+        // Por eso se restan para calcular la caja esperada usada en el desfase.
+        return inicial + movimientoFisico - creditosOtorgados;
     }
 
     function actualizarDesfasePreview() {

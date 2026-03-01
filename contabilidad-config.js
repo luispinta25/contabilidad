@@ -475,6 +475,8 @@ async function calcularResumenDiario(fecha = new Date()) {
         const totalVentasTransferencia = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
 
         // Calcular ingresos
+        const totalCreditosOtorgados = creditos.reduce((sum, c) => sum + parseFloat(c.monto || 0), 0);
+
         const totalPagosCxC = pagos.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         const pagosCxCEfectivo = pagos
             .filter(p => (p.forma_pago || '').toUpperCase() === 'EFECTIVO')
@@ -508,10 +510,10 @@ async function calcularResumenDiario(fecha = new Date()) {
 
         const otrosIngresos = 0; // TODO: Implementar cuando exista tabla de otros ingresos
         
-        // Ingresos Totales = Ventas pagadas (Efectivo + Transferencia) + Pagos CxC + Otros
+        // Ingresos Totales = Ventas pagadas + CxC anotadas del día + Pagos CxC + Otros
         // No sumamos transferencias porque ya están incluidas en las ventas o pagos CxC
-        const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalPagosCxC + otrosIngresos;
-        const totalIngresosMovimientos = ventasEfectivo.length + ventasTransferencia.length + pagos.length;
+        const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalCreditosOtorgados + totalPagosCxC + otrosIngresos;
+        const totalIngresosMovimientos = ventasEfectivo.length + ventasTransferencia.length + creditos.length + pagos.length;
 
         // Egresos Totales = Pagos a Proveedores + Gastos
         // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
@@ -573,12 +575,13 @@ async function calcularResumenDiario(fecha = new Date()) {
             creditos: {
                 otorgados: creditos,
                 cantidad: creditos.length,
-                total: creditos.reduce((sum, c) => sum + parseFloat(c.monto || 0), 0),
+                total: totalCreditosOtorgados,
                 pagadosMismoDia: creditosPagadosHoy
             },
             ingresos: {
                 total: totalIngresos,
                 ventas: totalVentasEfectivo + totalVentasTransferencia, // Solo ventas pagadas
+                creditosOtorgados: totalCreditosOtorgados,
                 pagosCxC: totalPagosCxC,
                 transferencias: 0, // Ya no sumamos transferencias a los ingresos
                 otros: otrosIngresos,
