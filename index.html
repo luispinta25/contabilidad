@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contabilidad - Ferrisoluciones</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -94,9 +94,9 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="contabilidad-supabase.js"></script>
-    <script src="contabilidad-auth.js"></script>
-    <script src="contabilidad-config.js"></script>
+    <script src="assets/js/contabilidad-supabase.js"></script>
+    <script src="assets/js/contabilidad-auth.js"></script>
+    <script src="assets/js/contabilidad-config.js"></script>
     <script>
         // Sobrescribir funciones de auth.js para este módulo
         function showLogin() {
@@ -230,7 +230,7 @@
             if (moduleName === 'dashboard') {
                 // Cargar dashboard como iframe para mantener independencia
                 container.innerHTML = `
-                    <iframe src="dashboard.html" 
+                        <iframe src="modules/dashboard.html" 
                             style="width: 100%; height: 100%; border: none; display: block;"
                             title="Dashboard Financiero"></iframe>
                 `;
@@ -259,8 +259,8 @@
                     </div>
                 `;
 
-                const response = await fetch('caja-diaria.html');
-                if (!response.ok) throw new Error('No se pudo cargar el módulo caja-diaria.html');
+                const response = await fetch('modules/caja-diaria.html');
+                if (!response.ok) throw new Error('No se pudo cargar el módulo modules/caja-diaria.html');
 
                 const html = await response.text();
                 const temp = document.createElement('div');
