@@ -150,8 +150,9 @@ function verDetallesVentas() {
             .filter(c => c.tipo === 'VENTA' && c.venta_id)
             .map(c => c.venta_id)
     );
-    const ventasCredito = ventas.filter(v => ventasCreditoIds.has(v.id));
-    const ventasEfectivo = ventas.filter(v => !ventasCreditoIds.has(v.id));
+    const ventasDevueltas = resumenActual.ventas.devueltas || [];
+    const ventasCredito = ventas.filter(v => ventasCreditoIds.has(v.id) && v.estado !== 'DEVUELTO');
+    const ventasEfectivo = ventas.filter(v => !ventasCreditoIds.has(v.id) && v.estado !== 'DEVUELTO');
 
     const html = `
         <div style="margin-bottom: 30px;">
@@ -172,8 +173,14 @@ function verDetallesVentas() {
                 <div style="padding: 20px; background: #e8f5e9; border-radius: 8px;">
                     <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 5px;">Ventas Totales</div>
                     <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary-color);">${formatCurrency(resumenActual.ventas.total)}</div>
-                    <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 5px;">${ventas.length} venta(s)</div>
+                    <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 5px;">${resumenActual.ventas.cantidad} venta(s)</div>
                 </div>
+                ${ventasDevueltas.length > 0 ? `
+                <div style="padding: 20px; background: #fef3f2; border-radius: 8px;">
+                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 5px;">Devoluciones</div>
+                    <div style="font-size: 1.8rem; font-weight: bold; color: #dc2626;">-${formatCurrency(resumenActual.ventas.totalDevueltas || 0)}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 5px;">${ventasDevueltas.length} devolución(es)</div>
+                </div>` : ''}
             </div>
         </div>
         <div class="table-container">
@@ -216,9 +223,10 @@ function verDetalleVentasEfectivo() {
             .filter(c => c.tipo === 'VENTA' && c.venta_id)
             .map(c => c.venta_id)
     );
-    const ventasEfectivo = ventas.filter(v => !ventasCreditoIds.has(v.id));
+    const ventasEfectivo = ventas.filter(v => !ventasCreditoIds.has(v.id) && v.estado !== 'DEVUELTO');
+    const devueltasEfectivo = ventas.filter(v => !ventasCreditoIds.has(v.id) && v.estado === 'DEVUELTO');
 
-    if (!ventasEfectivo.length) {
+    if (!ventasEfectivo.length && !devueltasEfectivo.length) {
         mostrarModalVacio('Ventas en Efectivo', 'No hay ventas en efectivo registradas hoy', true);
         return;
     }
@@ -252,6 +260,28 @@ function verDetalleVentasEfectivo() {
             <strong>Total Efectivo: ${formatCurrency(total)}</strong><br>
             <small>${ventasEfectivo.length} venta${ventasEfectivo.length !== 1 ? 's' : ''}</small>
         </div>
+        ${devueltasEfectivo.length > 0 ? `
+        <div style="margin-top: 15px; padding: 15px; background: #fef3f2; border-radius: 8px;">
+            <strong style="color: #dc2626;"><i class="fas fa-undo"></i> Devoluciones en Efectivo</strong>
+            <div class="table-container" style="margin-top: 10px;">
+                <table class="data-table">
+                    <thead><tr><th>Hora</th><th>ID Venta</th><th>Tipo</th><th>Total devuelto</th></tr></thead>
+                    <tbody>
+                        ${devueltasEfectivo.map(v => `
+                            <tr>
+                                <td>${formatTime(v.fecha_hora_venta)}</td>
+                                <td><strong>${v.id_venta}</strong></td>
+                                <td>${v.tipo}</td>
+                                <td style="color: #dc2626; font-weight: 600;">-${formatCurrency(v.total)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 10px; text-align: right; color: #dc2626; font-weight: bold;">
+                Devuelto: -${formatCurrency(devueltasEfectivo.reduce((s, v) => s + parseFloat(v.total || 0), 0))}
+            </div>
+        </div>` : ''}
     `;
 
     mostrarModal('Ventas en Efectivo', html, true);

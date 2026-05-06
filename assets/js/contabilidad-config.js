@@ -119,7 +119,7 @@ async function getVentasDelDia(targetDate = new Date()) {
             .select('*')
             .gte('fecha_hora_venta', startOfDay)
             .lte('fecha_hora_venta', endOfDay)
-            .in('estado', ['COMPLETADO', 'AUTORIZADO'])
+            .in('estado', ['COMPLETADO', 'AUTORIZADO', 'DEVUELTO'])
             .order('fecha_hora_venta', { ascending: false });
 
         if (error) throw error;
@@ -633,16 +633,20 @@ async function calcularResumenDiario(fecha = new Date()) {
         });
 
         // Calcular ventas
-        const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
-        const gananciaVentas = ventas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0);
-        
-        // Separar ventas por tipo de pago y crédito
+        // Separar activas (COMPLETADO/AUTORIZADO) de devueltas (DEVUELTO)
+        const ventasActivas = ventas.filter(v => v.estado !== 'DEVUELTO');
+        const ventasDevueltas = ventas.filter(v => v.estado === 'DEVUELTO');
+
+        const gananciaVentas = ventasActivas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0)
+            - ventasDevueltas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0);
+
+        // Separar ventas por tipo de pago y crédito (sobre activas como base)
         const ventasIdCredito = creditos
             .filter(c => c.tipo === 'VENTA' && c.venta_id)
             .map(c => c.venta_id);
         
-        const ventasCredito = ventas.filter(v => ventasIdCredito.includes(v.id));
-        const ventasNoCredito = ventas.filter(v => !ventasIdCredito.includes(v.id));
+        const ventasCredito = ventasActivas.filter(v => ventasIdCredito.includes(v.id));
+        const ventasNoCredito = ventasActivas.filter(v => !ventasIdCredito.includes(v.id));
 
         // De las no crédito, separar Efectivo vs Transferencia
         // Consideramos MIXTO como efectivo para el cuadre físico, 
@@ -656,9 +660,13 @@ async function calcularResumenDiario(fecha = new Date()) {
             (v.tipo_pago || '').toUpperCase() === 'TRANSFERENCIA'
         );
 
+        // Las ventas DEVUELTO ya están excluidas de ventasActivas, por lo que su efecto
+        // neto en los totales es cero (no se suman ni se restan por separado).
+        // ventasDevueltas se guarda solo para informar en el resumen.
         const totalVentasCredito = ventasCredito.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
         const totalVentasEfectivo = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
         const totalVentasTransferencia = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const totalVentas = totalVentasEfectivo + totalVentasTransferencia + totalVentasCredito;
 
         // Calcular ingresos
         const totalCreditosOtorgados = creditos.reduce((sum, c) => sum + parseFloat(c.monto || 0), 0);
@@ -756,9 +764,11 @@ async function calcularResumenDiario(fecha = new Date()) {
                 efectivo: totalVentasEfectivo,
                 transferencia: totalVentasTransferencia,
                 credito: totalVentasCredito,
-                cantidad: ventas.length,
+                cantidad: ventasActivas.length,
                 ganancia: gananciaVentas,
-                lista: ventas
+                lista: ventas,
+                devueltas: ventasDevueltas,
+                totalDevueltas: ventasDevueltas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0)
             },
             creditos: {
                 otorgados: creditos,
