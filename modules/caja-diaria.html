@@ -1,22 +1,5 @@
 <div class="caja-diaria-wrapper">
-    <div class="module-header">
-        <div>
-            <h2><i class="fas fa-cash-register"></i> Caja Diaria</h2>
-            <p id="cajaDiariaSubtitulo">Selecciona una fecha para revisar o registrar la caja diaria.</p>
-        </div>
-        <div class="caja-tab-bar">
-            <button class="caja-tab active" data-tab="gestion">
-                <i class="fas fa-calendar-day"></i>
-                <span>Gestión diaria</span>
-            </button>
-            <button class="caja-tab" data-tab="historico">
-                <i class="fas fa-history"></i>
-                <span>Histórico</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="caja-tab-panel active" data-panel="gestion">
+    <div class="module-header caja-toolbar">
         <div class="module-controls">
             <label class="date-select-label" for="cajaDaySelect">Fecha:</label>
             <div class="date-select-group">
@@ -41,8 +24,22 @@
                 <i class="fas fa-sync-alt"></i> Consultar
             </button>
         </div>
-
         <div id="cajaDiariaAlerts" class="module-alerts"></div>
+        <div id="cajaPendientesAlert" style="display:none;" class="alert-transferencias-pendientes"></div>
+        <div class="caja-tab-bar">
+            <button class="caja-tab active" data-tab="gestion">
+                <i class="fas fa-calendar-day"></i>
+                <span>Gestión diaria</span>
+            </button>
+            <button class="caja-tab" data-tab="historico">
+                <i class="fas fa-history"></i>
+                <span>Histórico</span>
+            </button>
+        </div>
+        <p id="cajaDiariaSubtitulo" class="sr-only">Selecciona una fecha para revisar o registrar la caja diaria.</p>
+    </div>
+
+    <div class="caja-tab-panel active" data-panel="gestion">
         <div id="cajaDiariaLoading" class="module-loading" style="display: none;">
             <i class="fas fa-spinner fa-spin"></i>
             <span>Cargando información...</span>
@@ -90,7 +87,7 @@
             <div class="stat-card">
                 <span class="stat-label">Movimiento Caja Física</span>
                 <span class="stat-value" id="statCajaFisicaMovimiento">$0.00</span>
-                <span class="stat-note">Ventas efec.: <span id="statVentasEfectivo">$0.00</span></span>
+                <span class="stat-note">Ventas efec.: <span id="statVentasEfectivo">$0.00</span> · Pagos CxC efec.: <span id="statPagosCxCEfectivo">$0.00</span></span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Caja Virtual</span>
@@ -971,6 +968,700 @@
     color: #1e293b;
     border-color: #cbd5e1 !important;
 }
+
+/* UI refresh: Caja diaria operativa */
+.caja-diaria-wrapper {
+    background: #f4f6f8;
+    gap: 12px;
+    padding: 14px 18px;
+}
+
+.module-header {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.caja-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    min-height: 58px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.module-header h2 {
+    color: #111827;
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.module-header p {
+    margin: 5px 0 0;
+    color: #64748b;
+}
+
+.caja-tab-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.caja-tab {
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #475569;
+    padding: 9px 12px;
+}
+
+.caja-tab:hover {
+    background: #eef2f7;
+    border-color: transparent;
+}
+
+.caja-tab.active {
+    background: #111827;
+    color: #fbc318;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.caja-tab-panel[data-panel="gestion"].active {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+    align-items: start;
+    gap: 12px 16px;
+}
+
+.caja-tab-panel[data-panel="gestion"] .module-loading {
+    grid-column: 1 / -1;
+}
+
+#sectionCierre {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+}
+
+#sectionResumen {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+#sectionCajaInicial {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.module-controls {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.caja-toolbar .module-controls {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    min-width: 0;
+}
+
+.date-select-label {
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.date-select {
+    border-radius: 8px;
+    border-color: #d1d5db;
+    min-height: 36px;
+}
+
+.btn-primary,
+.btn-success {
+    border-radius: 8px;
+    min-height: 36px;
+    font-weight: 700;
+}
+
+.btn-primary {
+    background: #111827;
+    color: #fbc318;
+}
+
+.btn-primary:hover {
+    background: #0f766e;
+    color: #ffffff;
+}
+
+.btn-success {
+    background: #0f766e;
+}
+
+.btn-success:hover {
+    background: #115e59;
+}
+
+.module-alerts .alert,
+.module-loading,
+.historico-loading {
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.module-alerts .alert {
+    padding: 10px 14px;
+}
+
+.caja-toolbar .module-alerts {
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.caja-toolbar .module-alerts:empty {
+    display: none;
+}
+
+.caja-toolbar .module-alerts .alert {
+    border: 1px solid #bbf7d0;
+    border-left: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+    border-radius: 999px;
+    margin: 0;
+    padding: 7px 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    box-shadow: none;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.caja-toolbar .module-alerts .alert-warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.caja-toolbar .module-alerts .alert-danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.caja-toolbar .module-alerts .alert-info {
+    background: #eef6ff;
+    border-color: #bfdbfe;
+    color: #1e40af;
+}
+
+.caja-section {
+    border-radius: 8px;
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+}
+
+.caja-section header {
+    background: #ffffff;
+    padding: 15px 18px;
+}
+
+.caja-section header h3 {
+    color: #111827;
+    font-size: 1.04rem;
+}
+
+.caja-section header h3 i {
+    color: #0f766e;
+}
+
+.section-badge {
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.78rem;
+}
+
+.section-body {
+    padding: 18px;
+}
+
+.stats-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px;
+}
+
+.stat-card {
+    background: #ffffff;
+    border-radius: 8px;
+    border-color: #e5e7eb;
+    padding: 13px 14px;
+}
+
+.stat-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    color: #111827;
+    font-size: 1.18rem;
+}
+
+.stat-note {
+    line-height: 1.4;
+}
+
+.resume-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.resume-grid > div {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 13px 14px;
+}
+
+.resume-grid.wider {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.resume-label {
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.resume-value {
+    color: #111827;
+    font-size: 1.18rem;
+}
+
+.denominaciones-container {
+    background: #ffffff;
+    border-color: #e5e7eb;
+    border-radius: 8px;
+    padding: 18px;
+}
+
+.denominaciones-header {
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 16px;
+}
+
+.denominaciones-header h4 {
+    color: #111827;
+    font-size: 1.04rem;
+}
+
+.denominaciones-header h4 i,
+.denominaciones-group-title i {
+    color: #0f766e;
+}
+
+.denominaciones-group {
+    margin-bottom: 18px;
+}
+
+.denominaciones-group-title {
+    color: #64748b;
+    letter-spacing: 0.04em;
+}
+
+.denominaciones-grid {
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+    gap: 10px;
+}
+
+.denominacion-item {
+    border-radius: 8px;
+    padding: 10px;
+    gap: 5px;
+}
+
+.denominacion-item input {
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.denominacion-item:focus-within {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.denominacion-item input:focus {
+    border-color: #0f766e;
+}
+
+.denominacion-subtotal {
+    color: #0f766e;
+}
+
+.denominaciones-footer {
+    background: #f8fafc;
+    border-color: #e5e7eb;
+    border-radius: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 12px 14px;
+}
+
+.denominaciones-footer::before {
+    content: none;
+}
+
+.denominaciones-suma {
+    color: #475569;
+    font-size: 0.95rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.denominaciones-suma span {
+    background: #ecfdf5;
+    border: 1px solid #99f6e4;
+    border-radius: 999px;
+    color: #0f766e;
+    font-size: 1.08rem;
+    padding: 6px 12px;
+}
+
+.form-grid {
+    margin-top: 10px;
+    margin-bottom: 18px;
+    align-items: end;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr);
+}
+
+.form-control label {
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.form-control input,
+.form-control textarea {
+    border-radius: 8px;
+    border-color: #d1d5db;
+    min-height: 40px;
+}
+
+.form-control textarea {
+    resize: vertical;
+    min-height: 40px;
+    height: 40px;
+    line-height: 1.35;
+    padding-top: 10px;
+    padding-bottom: 8px;
+}
+
+.form-control textarea:focus {
+    height: 40px;
+    min-height: 40px;
+}
+
+.input-readonly-calc {
+    background: #f8fafc !important;
+    color: #111827;
+}
+
+.form-actions {
+    justify-content: flex-end;
+}
+
+.info-block,
+.empty-hint {
+    border-radius: 8px;
+}
+
+.historico-header {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.historico-range-btn {
+    border-radius: 8px;
+    border-color: #e5e7eb;
+}
+
+.historico-range-btn.active {
+    background: #111827;
+    border-color: #111827;
+    color: #fbc318;
+    box-shadow: none;
+}
+
+.historico-card,
+.historico-section {
+    border-radius: 8px;
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.historico-card-value {
+    color: #111827;
+}
+
+.historico-range-chip {
+    background: #ecfdf5;
+    color: #0f766e;
+    border-radius: 999px;
+}
+
+@media (max-width: 1180px) {
+    .caja-tab-panel[data-panel="gestion"].active {
+        grid-template-columns: 1fr;
+    }
+
+    #sectionCierre,
+    #sectionResumen,
+    #sectionCajaInicial {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    #sectionCierre {
+        order: 3;
+    }
+
+    #sectionResumen {
+        order: 4;
+    }
+
+    #sectionCajaInicial {
+        order: 5;
+    }
+}
+
+@media (max-width: 768px) {
+    .caja-diaria-wrapper {
+        padding: 12px;
+    }
+
+    .module-header {
+        align-items: stretch;
+    }
+
+    .caja-toolbar {
+        display: flex;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .caja-toolbar .module-controls {
+        align-items: center;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .caja-toolbar .module-controls button,
+    .caja-toolbar .date-select-group {
+        width: auto;
+    }
+
+    .caja-toolbar .module-alerts {
+        justify-content: flex-start;
+    }
+
+    .caja-toolbar .module-alerts .alert {
+        white-space: normal;
+    }
+
+    .caja-tab-bar {
+        width: 100%;
+    }
+
+    .caja-tab {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .resume-grid,
+    .resume-grid.wider,
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .denominaciones-footer {
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    .denominaciones-suma {
+        justify-content: space-between;
+        width: 100%;
+    }
+}
+
+/* ── Alerta de transferencias pendientes (lockscreen no cerrable) ── */
+.alert-transferencias-pendientes {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    backdrop-filter: blur(3px);
+}
+.atp-card {
+    background: #fff7ed;
+    border: 2px solid #f97316;
+    border-radius: 14px;
+    padding: 24px 24px 20px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.28);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.alert-transferencias-pendientes .atp-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #c2410c;
+    margin-bottom: 10px;
+}
+.alert-transferencias-pendientes .atp-instrucciones {
+    font-size: 0.84rem;
+    color: #92400e;
+    margin-bottom: 12px;
+    background: #ffedd5;
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 1.5;
+}
+.alert-transferencias-pendientes .atp-lista {
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.alert-transferencias-pendientes .atp-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.86rem;
+}
+.atp-badge-ingreso {
+    background: #dcfce7;
+    color: #166534;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.atp-badge-egreso {
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.atp-badge-venta {
+    background: #dbeafe;
+    color: #1e40af;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.atp-motivo {
+    flex: 1;
+    color: #7c2d12;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.atp-codigo {
+    display: inline-block;
+    background: #ffedd5;
+    color: #9a3412;
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+.atp-monto {
+    font-weight: 700;
+    color: #c2410c;
+    white-space: nowrap;
+}
+.atp-reload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f97316;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    width: 100%;
+    justify-content: center;
+}
+.atp-reload-btn:hover {
+    background: #ea580c;
+}
 </style>
 
 <script>
@@ -999,6 +1690,12 @@
         }
     };
     let chartJsPromise = null;
+    const DENOMINACION_IDS = [
+        'billet_100', 'billet_50', 'billet_20', 'billet_10', 'billet_5', 'billet_2', 'billet_1',
+        'moneda_1', 'moneda_050', 'moneda_025', 'moneda_010', 'moneda_005', 'moneda_001'
+    ];
+    const DENOMINACIONES_CACHE_TTL_MS = 30 * 60 * 1000;
+    const DENOMINACIONES_CACHE_PREFIX = 'contabilidad.caja-diaria.denominaciones';
 
     function formatDateInputValue(date) {
         const year = date.getFullYear();
@@ -1344,6 +2041,157 @@
         container.innerHTML = `<div class="${css}">${message}</div>`;
     }
 
+    async function checkTransferenciasPendientesHoy() {
+        const container = document.getElementById('cajaPendientesAlert');
+        if (!container) return;
+
+        try {
+            const supabase = getSupabaseClient();
+            const hoy = new Date();
+            const startOfDay = getStartOfDay(hoy);
+            const endOfDay = getEndOfDay(hoy);
+
+            const { data, error } = await supabase
+                .from('ferre_transferencias')
+                .select('id, monto, motivo, caso, fechahora, fotografia, id_venta')
+                .gte('fechahora', startOfDay)
+                .lte('fechahora', endOfDay);
+
+            if (error) {
+                console.error('Error al verificar transferencias pendientes:', error);
+                container.style.display = 'none';
+                return;
+            }
+
+            // Pendientes = sin fotografía (null, vacío, o solo espacios)
+            const pendientes = (data || []).filter(t => !t.fotografia || t.fotografia.trim() === '');
+
+            if (pendientes.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            // Detectar transferencias con id_venta (Venta POS) para mostrar artículos
+            const VENTA_POS_RE = /Venta POS (S\d+)/i;
+
+            // Recopilar códigos únicos desde transferencia.id_venta (tiene el código directo)
+            const codigosVenta = [...new Set(
+                pendientes
+                    .map(t => t.id_venta || null)
+                    .filter(Boolean)
+            )];
+
+            // Mapa codigoVenta → texto de artículos
+            const articulosPorCodigo = new Map();
+
+            if (codigosVenta.length > 0) {
+                // Paso 1: ferre_ventas donde id_venta = código → obtener UUID (id)
+                const { data: ventasData } = await supabase
+                    .from('ferre_ventas')
+                    .select('id, id_venta')
+                    .in('id_venta', codigosVenta);
+
+                const uuidPorCodigo = new Map(
+                    (ventasData || []).map(v => [v.id_venta, v.id])
+                );
+
+                const uuids = [...uuidPorCodigo.values()].filter(Boolean);
+
+                if (uuids.length > 0) {
+                    // Paso 2: ferre_ventas_detalle donde venta_id = UUID
+                    const { data: detalleData } = await supabase
+                        .from('ferre_ventas_detalle')
+                        .select('*')
+                        .in('venta_id', uuids);
+
+                    const detallesPorUuid = new Map();
+                    (detalleData || []).forEach(d => {
+                        if (!detallesPorUuid.has(d.venta_id)) detallesPorUuid.set(d.venta_id, []);
+                        detallesPorUuid.get(d.venta_id).push(d);
+                    });
+
+                    // Paso 3: resolver nombres desde ferre_inventario
+                    const allDetalles = detalleData || [];
+                    const productoIds = [...new Set(allDetalles.map(d => d.producto_id).filter(Boolean))];
+                    const inventarioPorCodigo = new Map();
+
+                    if (productoIds.length) {
+                        const { data: invData } = await supabase
+                            .from('ferre_inventario')
+                            .select('codigo, producto')
+                            .in('codigo', productoIds);
+                        (invData || []).forEach(p => inventarioPorCodigo.set(p.codigo, p));
+                    }
+
+                    // Mapear código de venta → lista de artículos
+                    uuidPorCodigo.forEach((uuid, codigoVenta) => {
+                        const filas = detallesPorUuid.get(uuid) || [];
+                        const items = filas.map(d => {
+                            const inv = inventarioPorCodigo.get(d.producto_id);
+                            const nombre = inv?.producto
+                                || d.nombre_producto || d.producto_nombre || d.descripcion_producto
+                                || d.descripcion || d.producto || d.nombre || d.producto_id || 'Producto';
+                            const cant = Number(d.cantidad || d.qty || d.unidades || 0);
+                            return `${cant > 1 ? cant + '× ' : ''}${nombre}`;
+                        });
+                        articulosPorCodigo.set(codigoVenta, items.length ? items : null);
+                    });
+                }
+            }
+
+            const filas = pendientes.map(t => {
+                const tipo = (t.caso || '').toLowerCase() === 'egreso' ? 'egreso' : 'ingreso';
+                const badgeClass = tipo === 'ingreso' ? 'atp-badge-ingreso' : 'atp-badge-egreso';
+                const badgeLabel = tipo === 'ingreso' ? 'Ingreso' : 'Egreso';
+                const monto = formatCurrency(parseFloat(t.monto || 0));
+
+                // Si tiene id_venta, es una Venta POS → mostrar artículos
+                const esVenta = !!t.id_venta || /venta\s*pos/i.test(t.motivo || '');
+                const badgeClassFinal = esVenta ? 'atp-badge-venta' : badgeClass;
+                const badgeLabelFinal = esVenta ? 'Venta' : badgeLabel;
+
+                let motivoHtml;
+                if (t.id_venta) {
+                    const articulos = articulosPorCodigo.get(t.id_venta);
+                    if (articulos && articulos.length) {
+                        motivoHtml = `<span class="atp-motivo">${articulos.join(' · ')}</span>`;
+                    } else {
+                        motivoHtml = `<span class="atp-motivo">Venta POS</span>`;
+                    }
+                } else {
+                    const motivo = t.motivo ? t.motivo : '(sin motivo)';
+                    motivoHtml = `<span class="atp-motivo">${motivo}</span>`;
+                }
+
+                return `<li class="atp-item">
+                    <span class="${badgeClassFinal}">${badgeLabelFinal}</span>
+                    ${motivoHtml}
+                    <span class="atp-monto">${monto}</span>
+                </li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="atp-card">
+                    <div class="atp-header">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Tienes ${pendientes.length} transferencia${pendientes.length > 1 ? 's' : ''} pendiente${pendientes.length > 1 ? 's' : ''} sin comprobante de hoy
+                    </div>
+                    <div class="atp-instrucciones">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>¿Cómo corregir?</strong> Ve al módulo de transferencias, sube el comprobante (fotografía) de cada transferencia pendiente y luego recarga esta página. Solo se muestran transferencias del día de hoy.
+                    </div>
+                    <ul class="atp-lista">${filas}</ul>
+                    <button class="atp-reload-btn" onclick="location.reload()">
+                        <i class="fas fa-sync-alt"></i> Recargar página
+                    </button>
+                </div>
+            `;
+            container.style.display = 'flex';
+        } catch (err) {
+            console.error('Error inesperado al verificar transferencias pendientes:', err);
+        }
+    }
+
     function toggleLoading(show) {
         const loader = document.getElementById('cajaDiariaLoading');
         if (!loader) return;
@@ -1354,6 +2202,71 @@
         const el = document.getElementById(id);
         if (!el) return;
         el.textContent = value != null ? value : fallback;
+    }
+
+    function getDenominacionesCacheKey() {
+        return `${DENOMINACIONES_CACHE_PREFIX}.${state.fechaISO || 'sin-fecha'}`;
+    }
+
+    function clearDenominacionesCache() {
+        try {
+            localStorage.removeItem(getDenominacionesCacheKey());
+        } catch (error) {
+            console.warn('No se pudo limpiar el cache de denominaciones:', error);
+        }
+    }
+
+    function readDenominacionesCache() {
+        try {
+            const raw = localStorage.getItem(getDenominacionesCacheKey());
+            if (!raw) return null;
+
+            const cached = JSON.parse(raw);
+            const createdAt = Number(cached.createdAt || 0);
+            if (!createdAt || Date.now() - createdAt > DENOMINACIONES_CACHE_TTL_MS) {
+                clearDenominacionesCache();
+                return null;
+            }
+
+            return cached.values || null;
+        } catch (error) {
+            console.warn('No se pudo leer el cache de denominaciones:', error);
+            clearDenominacionesCache();
+            return null;
+        }
+    }
+
+    function saveDenominacionesCache() {
+        if (state.cajaDiaria) return;
+
+        try {
+            const values = {};
+            DENOMINACION_IDS.forEach(key => {
+                const el = document.getElementById(key);
+                values[key] = el ? el.value : '';
+            });
+
+            localStorage.setItem(getDenominacionesCacheKey(), JSON.stringify({
+                createdAt: Date.now(),
+                values
+            }));
+        } catch (error) {
+            console.warn('No se pudo guardar el cache de denominaciones:', error);
+        }
+    }
+
+    function restoreDenominacionesCache() {
+        const values = readDenominacionesCache();
+        if (!values) return false;
+
+        DENOMINACION_IDS.forEach(key => {
+            const el = document.getElementById(key);
+            if (el && Object.prototype.hasOwnProperty.call(values, key)) {
+                el.value = values[key] || '';
+            }
+        });
+
+        return true;
     }
 
     function getUsuarioNombre() {
@@ -1550,6 +2463,18 @@ _Sistema de Gestión Ferrisoluciones_`;
 
             renderAll();
             showCajaAlert('success', `Datos actualizados para el ${formatDate(state.fecha)}.`);
+
+            // Revisar transferencias pendientes solo si se consulta el día de hoy
+            const hoy = new Date();
+            const esHoy = targetDate.getFullYear() === hoy.getFullYear() &&
+                          targetDate.getMonth() === hoy.getMonth() &&
+                          targetDate.getDate() === hoy.getDate();
+            if (esHoy) {
+                checkTransferenciasPendientesHoy();
+            } else {
+                const alertPend = document.getElementById('cajaPendientesAlert');
+                if (alertPend) alertPend.style.display = 'none';
+            }
         } catch (error) {
             console.error('Error al cargar caja diaria:', error);
             showCajaAlert('error', error.message || 'No se pudieron obtener los datos de la caja diaria.');
@@ -1677,6 +2602,7 @@ _Sistema de Gestión Ferrisoluciones_`;
             updateText('statTransferEgresos', formatCurrency(0));
             updateText('statCajaFisicaMovimiento', formatCurrency(0));
             updateText('statVentasEfectivo', formatCurrency(0));
+            updateText('statPagosCxCEfectivo', formatCurrency(0));
             updateText('statVentasTransferencia', formatCurrency(0));
             updateText('statCajaVirtual', formatCurrency(0));
             updateText('statSaldoBanco', formatCurrency(0));
@@ -1700,6 +2626,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('statTransferEgresos', formatCurrency(resumen.transferencias.totalEgresos));
         updateText('statCajaFisicaMovimiento', formatCurrency(resumen.caja.fisica.total));
         updateText('statVentasEfectivo', formatCurrency(resumen.caja.fisica.ingresos.ventas));
+        updateText('statPagosCxCEfectivo', formatCurrency(resumen.caja.fisica.ingresos.pagosCxC));
         updateText('statVentasTransferencia', formatCurrency(resumen.ventas.transferencia));
         updateText('statCajaVirtual', formatCurrency(resumen.caja.virtual.movimientoHoy));
         updateText('statSaldoBanco', formatCurrency(resumen.caja.virtual.saldoActual));
@@ -1715,12 +2642,10 @@ _Sistema de Gestión Ferrisoluciones_`;
     function getCajaEsperada() {
         const inicial = state.cajaInicial ? parseMonto(state.cajaInicial.monto_inicial) : 0;
         const movimientoFisico = state.resumen ? parseMonto(state.resumen.caja.fisica.total) : 0;
-        const creditosOtorgados = state.resumen ? parseMonto(state.resumen.ingresos.creditosOtorgados || 0) : 0;
-        
-        // Regla de negocio: las CxC se consideran ingreso contable,
-        // pero no efectivo disponible en caja física.
-        // Por eso se restan para calcular la caja esperada usada en el desfase.
-        return inicial + movimientoFisico - creditosOtorgados;
+
+        // Las ventas a crédito ya están excluidas del movimiento físico.
+        // Caja física esperada = caja inicial + movimiento físico neto del día.
+        return inicial + movimientoFisico;
     }
 
     function actualizarDesfasePreview() {
@@ -1793,10 +2718,7 @@ _Sistema de Gestión Ferrisoluciones_`;
             notas.value = state.cajaDiaria.observaciones || '';
             
             // Populear denominaciones si existen
-            const dens = ['billet_100', 'billet_50', 'billet_20', 'billet_10', 'billet_5', 'billet_2', 'billet_1',
-                          'moneda_1', 'moneda_050', 'moneda_025', 'moneda_010', 'moneda_005', 'moneda_001'];
-            
-            dens.forEach(key => {
+            DENOMINACION_IDS.forEach(key => {
                 const el = document.getElementById(key);
                 if (el) {
                     el.value = state.cajaDiaria[key] || 0;
@@ -1832,18 +2754,20 @@ _Sistema de Gestión Ferrisoluciones_`;
             notas.value = '';
 
             // Limpiar y habilitar denominaciones
-            const dens = ['billet_100', 'billet_50', 'billet_20', 'billet_10', 'billet_5', 'billet_2', 'billet_1',
-                          'moneda_1', 'moneda_050', 'moneda_025', 'moneda_010', 'moneda_005', 'moneda_001'];
-            dens.forEach(key => {
+            DENOMINACION_IDS.forEach(key => {
                 const el = document.getElementById(key);
                 if (el) {
                     el.value = '';
                     el.disabled = false;
                 }
             });
+            const hasCachedDenominaciones = restoreDenominacionesCache();
             actualizarSumaDenominaciones();
 
             updateText('cajaDesfaseValor', formatCurrency(0));
+            if (hasCachedDenominaciones) {
+                actualizarDesfasePreview();
+            }
             if (estado) {
                 estado.textContent = 'Pendiente';
                 estado.classList.remove('success');
@@ -2201,6 +3125,7 @@ _Sistema de Gestión Ferrisoluciones_`;
 
         try {
             await crearCajaDiariaRegistro(payload);
+            clearDenominacionesCache();
             showCajaAlert('success', 'Caja diaria registrada correctamente.');
             
             // Enviar notificación de cierre por WhatsApp
@@ -2252,7 +3177,10 @@ _Sistema de Gestión Ferrisoluciones_`;
         
         // Listeners para denominaciones
         document.querySelectorAll('.denominacion-input').forEach(input => {
-            input.addEventListener('input', actualizarSumaDenominaciones);
+            input.addEventListener('input', () => {
+                actualizarSumaDenominaciones();
+                saveDenominacionesCache();
+            });
         });
 
         if (tabs.length) {
@@ -2286,6 +3214,7 @@ _Sistema de Gestión Ferrisoluciones_`;
 
         syncDateSelectors(hoy);
         setupEventListeners();
+        checkTransferenciasPendientesHoy();
         loadCajaDiariaData();
     };
 })();

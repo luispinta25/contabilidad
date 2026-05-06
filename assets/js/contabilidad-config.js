@@ -153,7 +153,7 @@ async function getCreditosOtorgadosHoy(targetDate = new Date()) {
             .order('fecha_otorgada', { ascending: false });
 
         if (error) throw error;
-        return data || [];
+        return await enriquecerCuentasConDeudores(client, data || []);
     } catch (error) {
         console.error('Error al obtener créditos otorgados:', error);
         return [];
@@ -174,6 +174,7 @@ async function getPagosRecibidosHoy(targetDate = new Date()) {
             .select(`
                 *,
                 ferre_cuentas_por_cobrar (
+                    id,
                     codigo,
                     motivo,
                     deudor_id,
@@ -188,11 +189,61 @@ async function getPagosRecibidosHoy(targetDate = new Date()) {
             .order('fecha_pago', { ascending: false });
 
         if (error) throw error;
-        return data || [];
+        const pagos = data || [];
+        const cuentas = await enriquecerCuentasConDeudores(
+            client,
+            pagos.map(pago => pago.ferre_cuentas_por_cobrar || pago.cuentas_por_cobrar).filter(Boolean)
+        );
+        const cuentasPorId = new Map(cuentas.map(cuenta => [cuenta.id, cuenta]));
+
+        return pagos.map(pago => {
+            const cuentaOriginal = pago.ferre_cuentas_por_cobrar || pago.cuentas_por_cobrar || null;
+            const cuenta = cuentasPorId.get(cuentaOriginal?.id) || cuentaOriginal;
+
+            return {
+                ...pago,
+                cuentas_por_cobrar: cuenta,
+                ferre_cuentas_por_cobrar: cuenta
+            };
+        });
     } catch (error) {
         console.error('Error al obtener pagos recibidos:', error);
         return [];
     }
+}
+
+async function enriquecerCuentasConDeudores(client, cuentas) {
+    if (!Array.isArray(cuentas) || cuentas.length === 0) {
+        return [];
+    }
+
+    const deudorIds = [...new Set(cuentas.map(cuenta => cuenta.deudor_id).filter(Boolean))];
+    const deudoresPorId = new Map();
+
+    if (deudorIds.length > 0) {
+        const { data, error } = await client
+            .from('ferre_deudores')
+            .select('id, cedula_ruc, nombre')
+            .in('id', deudorIds);
+
+        if (!error) {
+            (data || []).forEach(deudor => deudoresPorId.set(deudor.id, deudor));
+        } else {
+            console.warn('No se pudo resolver deudores por id:', error);
+        }
+    }
+
+    return cuentas.map(cuenta => {
+        const deudor = cuenta.ferre_deudores || cuenta.deudores || cuenta.deudor || deudoresPorId.get(cuenta.deudor_id) || null;
+
+        return {
+            ...cuenta,
+            deudor,
+            deudores: deudor,
+            ferre_deudores: deudor,
+            deudor_nombre: deudor?.nombre || cuenta.deudor_nombre || null
+        };
+    });
 }
 
 /**
@@ -207,7 +258,6 @@ async function getPagosProveedoresHoy(targetDate = new Date()) {
 
         console.log('📅 Buscando pagos a proveedores:', { startOfDay, endOfDay });
 
-        // Primero intentar query simple sin JOINs
         const { data, error } = await supabase
             .from('ferre_pagos_proveedores')
             .select('*')
@@ -220,12 +270,147 @@ async function getPagosProveedoresHoy(targetDate = new Date()) {
             return [];
         }
 
-        console.log('✅ Pagos a proveedores encontrados:', data?.length || 0, data);
-        return data || [];
+        const pagosEnriquecidos = await enriquecerPagosProveedoresConProveedor(supabase, data || []);
+
+        console.log('✅ Pagos a proveedores encontrados:', pagosEnriquecidos.length, pagosEnriquecidos);
+        return pagosEnriquecidos;
     } catch (error) {
         console.error('Error en getPagosProveedoresHoy:', error);
         return [];
     }
+}
+
+async function enriquecerPagosProveedoresConProveedor(supabase, pagos) {
+    if (!Array.isArray(pagos) || pagos.length === 0) {
+        return [];
+    }
+
+    const facturaIds = [...new Set(
+        pagos
+            .map(pago => pago.factura_id)
+            .filter(Boolean)
+    )];
+
+    if (facturaIds.length === 0) {
+        return pagos;
+    }
+
+    const facturas = await getFacturasProveedorPorIds(supabase, facturaIds);
+    const proveedorIds = [...new Set(
+        facturas
+            .map(getProveedorIdDesdeFactura)
+            .filter(Boolean)
+    )];
+    const proveedorCodigos = [...new Set(
+        facturas
+            .map(getProveedorCodigoDesdeFactura)
+            .filter(Boolean)
+    )];
+    const proveedores = await getProveedoresPorIdentificadores(supabase, proveedorIds, proveedorCodigos);
+    const facturasPorId = new Map(facturas.map(factura => [factura.id, factura]));
+
+    return pagos.map(pago => {
+        const factura = facturasPorId.get(pago.factura_id) || pago.factura || pago.ferre_facturas_proveedores || null;
+        const proveedorId = getProveedorIdDesdeFactura(factura);
+        const proveedorCodigo = getProveedorCodigoDesdeFactura(factura);
+        const proveedor = proveedores.byId.get(proveedorId) || proveedores.byCodigo.get(proveedorCodigo) || null;
+
+        return {
+            ...pago,
+            factura,
+            proveedor,
+            proveedor_nombre: getProveedorNombreDesdeDatos(proveedor, factura, pago)
+        };
+    });
+}
+
+async function getFacturasProveedorPorIds(supabase, facturaIds) {
+    const tablasFactura = [
+        'ferre_facturas_proveedores',
+        'ferre_facturas_compra',
+        'ferre_compras',
+        'ferre_cuentas_por_pagar'
+    ];
+
+    for (const tabla of tablasFactura) {
+        const { data, error } = await supabase
+            .from(tabla)
+            .select('*')
+            .in('id', facturaIds);
+
+        if (!error) {
+            return data || [];
+        }
+
+        console.warn(`No se pudo consultar ${tabla} para resolver proveedores:`, error);
+    }
+
+    return [];
+}
+
+async function getProveedoresPorIdentificadores(supabase, proveedorIds, proveedorCodigos) {
+    const byId = new Map();
+    const byCodigo = new Map();
+
+    if (proveedorIds.length > 0) {
+        const { data, error } = await supabase
+            .from('ferre_proveedores')
+            .select('*')
+            .in('id', proveedorIds);
+
+        if (!error) {
+            (data || []).forEach(proveedor => {
+                byId.set(proveedor.id, proveedor);
+                if (proveedor.codigo) byCodigo.set(proveedor.codigo, proveedor);
+            });
+        } else {
+            console.warn('No se pudo resolver proveedores por id:', error);
+        }
+    }
+
+    if (proveedorCodigos.length > 0) {
+        const pendientes = proveedorCodigos.filter(codigo => !byCodigo.has(codigo));
+        if (pendientes.length > 0) {
+            const { data, error } = await supabase
+                .from('ferre_proveedores')
+                .select('*')
+                .in('codigo', pendientes);
+
+            if (!error) {
+                (data || []).forEach(proveedor => {
+                    byId.set(proveedor.id, proveedor);
+                    if (proveedor.codigo) byCodigo.set(proveedor.codigo, proveedor);
+                });
+            } else {
+                console.warn('No se pudo resolver proveedores por codigo:', error);
+            }
+        }
+    }
+
+    return { byId, byCodigo };
+}
+
+function getProveedorIdDesdeFactura(factura) {
+    return factura?.proveedor_id || factura?.id_proveedor || factura?.proveedor_uuid || factura?.supplier_id || null;
+}
+
+function getProveedorCodigoDesdeFactura(factura) {
+    return factura?.proveedor_codigo || factura?.codigo_proveedor || factura?.supplier_code || null;
+}
+
+function getProveedorNombreDesdeDatos(proveedor, factura, pago) {
+    const candidatos = [
+        proveedor?.empresa,
+        proveedor?.vendedor,
+        factura?.proveedor_empresa,
+        factura?.empresa_proveedor,
+        factura?.nombre_proveedor,
+        factura?.proveedor_nombre,
+        pago?.proveedor_nombre,
+        pago?.nombre_proveedor
+    ];
+
+    return candidatos.find(valor => typeof valor === 'string' && valor.trim())?.trim() || null;
 }
 
 /**
@@ -435,6 +620,7 @@ async function calcularResumenDiario(fecha = new Date()) {
         const gastos = await getGastosHoy(targetDate);
         const transferencias = await getTransferenciasHoy(targetDate);
         const saldoActual = await getSaldoActual();
+        const cajaInicial = await getCajaInicialPorFecha(fechaISO);
 
         console.log('📊 Datos obtenidos:', {
             ventas: ventas.length,
@@ -478,13 +664,13 @@ async function calcularResumenDiario(fecha = new Date()) {
         const totalCreditosOtorgados = creditos.reduce((sum, c) => sum + parseFloat(c.monto || 0), 0);
 
         const totalPagosCxC = pagos.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
-        const pagosCxCEfectivo = pagos
-            .filter(p => (p.forma_pago || '').toUpperCase() === 'EFECTIVO')
-            .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
+        console.log('💰 Pagos CxC recibidos:', pagos.map(p => ({ id: p.id, monto: p.monto_pago, forma_pago: p.forma_pago, metodo_pago: p.metodo_pago })));
         const pagosCxCTransferencia = pagos
-            .filter(p => ['TRANSFERENCIA', 'DEPOSITO', 'DEPÓSITO', 'TARJETA', 'CHEQUE'].includes((p.forma_pago || '').toUpperCase()))
+            .filter(p => ['TRANSFERENCIA', 'DEPOSITO', 'DEPÓSITO', 'TARJETA', 'CHEQUE'].includes((p.forma_pago || p.metodo_pago || '').toUpperCase()))
             .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
-        const pagosCxCOtros = totalPagosCxC - pagosCxCEfectivo - pagosCxCTransferencia;
+        // Pagos CxC en efectivo: forma_pago EFECTIVO, o sin forma_pago definida (asumimos efectivo)
+        const pagosCxCEfectivo = totalPagosCxC - pagosCxCTransferencia;
+        const pagosCxCOtros = 0;
 
         const totalPagosProveedores = pagosProveedores.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         const pagosProveedoresEfectivo = pagosProveedores
@@ -550,9 +736,11 @@ async function calcularResumenDiario(fecha = new Date()) {
         const cajaVirtualMovimiento = cajaVirtualIngresos.transferencias - cajaVirtualEgresos.transferencias;
         const saldoBanco = saldoActual?.monto_total ? parseFloat(saldoActual.monto_total) : 0;
         const saldoBancoFecha = saldoActual?.ultima_actualizacion || null;
+        const cajaInicialMonto = cajaInicial ? parseFloat(cajaInicial.monto_inicial || 0) : 0;
 
-        // La caja esperada real depende de la caja inicial, que se suma en la UI
-        const cajaEsperada = cajaFisicaTotal;
+        // Caja física final esperada = caja inicial + movimiento físico neto del día.
+        // Las ventas a crédito ya están excluidas del movimiento físico, por eso no se restan aquí.
+        const cajaEsperada = cajaInicialMonto + cajaFisicaTotal;
 
         // Detectar créditos pagados el mismo día
         const creditosPagadosHoy = await detectarCreditosPagadosMismoDia(creditos, pagos);
@@ -622,6 +810,10 @@ async function calcularResumenDiario(fecha = new Date()) {
             },
             caja: {
                 esperada: cajaEsperada,
+                inicial: {
+                    registro: cajaInicial,
+                    monto: cajaInicialMonto
+                },
                 fisica: {
                     ingresos: cajaFisicaIngresos,
                     egresos: cajaFisicaEgresos,

@@ -4,6 +4,7 @@
 
 let resumenActual = null;
 let autoRefreshInterval = null;
+const detallesCreditoCache = new Map();
 
 // Inicializar dashboard al cargar
 document.addEventListener('DOMContentLoaded', () => {
@@ -259,7 +260,7 @@ function verDetalleVentasEfectivo() {
 /**
  * Ver detalles de ventas a crédito
  */
-function verDetalleVentasCredito() {
+async function verDetalleVentasCredito() {
     if (!resumenActual) return;
 
     const creditosVenta = resumenActual.creditos.otorgados.filter(c => c.tipo === 'VENTA' && c.venta_id);
@@ -268,6 +269,13 @@ function verDetalleVentasCredito() {
         mostrarModalVacio('Ventas a Crédito', 'No hay ventas a crédito registradas hoy');
         return;
     }
+
+    await asegurarDeudoresCreditos(creditosVenta);
+    console.info('CxC ventas a crédito resueltas:', creditosVenta.map(credito => ({
+        codigo: credito.codigo,
+        deudor_id: credito.deudor_id,
+        deudor: getDeudorCreditoNombre(credito)
+    })));
 
     let html = `
         <div class="table-container">
@@ -285,13 +293,22 @@ function verDetalleVentasCredito() {
     `;
 
     creditosVenta.forEach(credito => {
+        const rowId = getCreditoDetalleRowId(credito.codigo);
         html += `
             <tr>
-                <td><strong>${credito.codigo}</strong></td>
-                <td>${credito.deudores?.nombre || 'N/A'}</td>
+                <td>
+                    <button class="credito-codigo-btn" onclick="toggleDetalleProductosCredito('${credito.codigo}')">
+                        <strong>${credito.codigo}</strong>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </td>
+                <td>${getDeudorCreditoNombre(credito)}</td>
                 <td>${formatCurrency(credito.monto)}</td>
                 <td>${formatCurrency(credito.saldo_pendiente)}</td>
                 <td><span style="color: ${getEstadoColor(credito.estado)}; font-weight: 600;">${credito.estado}</span></td>
+            </tr>
+            <tr id="${rowId}" class="credito-detalle-row" style="display: none;">
+                <td colspan="5" style="padding: 0; background: #f8fafc;"></td>
             </tr>
         `;
     });
@@ -310,6 +327,274 @@ function verDetalleVentasCredito() {
     `;
 
     mostrarModal('Ventas a Crédito', html, true);
+}
+
+function getDeudorCreditoNombre(credito) {
+    return credito.deudor_nombre
+        || credito.deudor?.nombre
+        || credito.deudores?.nombre
+        || credito.ferre_deudores?.nombre
+        || 'N/A';
+}
+
+async function asegurarDeudoresCreditos(creditos) {
+    const pendientes = (creditos || []).filter(credito => (
+        credito.deudor_id && getDeudorCreditoNombre(credito) === 'N/A'
+    ));
+
+    if (!pendientes.length) return;
+
+    try {
+        const client = getSupabaseClient();
+        const deudorIds = [...new Set(pendientes.map(credito => credito.deudor_id))];
+        const { data, error } = await client
+            .from('ferre_deudores')
+            .select('id, cedula_ruc, nombre')
+            .in('id', deudorIds);
+
+        if (error) {
+            console.warn('No se pudo resolver deudores para ventas a crédito:', error);
+            return;
+        }
+
+        const deudoresPorId = new Map((data || []).map(deudor => [deudor.id, deudor]));
+        pendientes.forEach(credito => {
+            const deudor = deudoresPorId.get(credito.deudor_id);
+            if (!deudor) return;
+            credito.deudor = deudor;
+            credito.deudores = deudor;
+            credito.ferre_deudores = deudor;
+            credito.deudor_nombre = deudor.nombre;
+        });
+    } catch (error) {
+        console.warn('Error resolviendo deudores para ventas a crédito:', error);
+    }
+}
+
+async function getDetallesProductosVentasCredito(creditos) {
+    const detallesPorCodigoOriginal = new Map();
+    if (!Array.isArray(creditos) || !creditos.length) {
+        return detallesPorCodigoOriginal;
+    }
+
+    const client = getSupabaseClient();
+    const detallesEncontrados = [];
+    const ventaIds = [...new Set(creditos.map(credito => credito.venta_id).filter(Boolean))];
+    const ventasPorId = await getVentasPorIds(client, ventaIds);
+
+    for (const credito of creditos) {
+        const venta = ventasPorId.get(credito.venta_id) || null;
+        const idVentaDetalle = venta?.id_venta || null;
+
+        if (!idVentaDetalle) {
+            console.warn('No se pudo resolver id_venta para crédito:', {
+                codigo: credito.codigo,
+                venta_id: credito.venta_id
+            });
+            detallesPorCodigoOriginal.set(credito.codigo, []);
+            continue;
+        }
+
+        console.info('Buscando detalle de venta a crédito:', {
+            codigoVisual: credito.codigo,
+            ventaId: credito.venta_id,
+            idVentaDetalle
+        });
+
+        let { data, error } = await client
+            .from('ferre_ventas_detalle')
+            .select('*')
+            .eq('id_venta', idVentaDetalle);
+
+        if (error) {
+            console.warn('No se pudo consultar ferre_ventas_detalle por id_venta exacto:', error);
+            detallesPorCodigoOriginal.set(credito.codigo, []);
+            continue;
+        }
+
+        let filas = data || [];
+
+        if (!filas.length) {
+            const numerico = idVentaDetalle.replace(/^[A-Za-z]/, '');
+            const fallback = await client
+                .from('ferre_ventas_detalle')
+                .select('*')
+                .ilike('id_venta', `%${numerico}%`);
+
+            if (fallback.error) {
+                console.warn('No se pudo consultar ferre_ventas_detalle por coincidencia:', fallback.error);
+            } else {
+                filas = fallback.data || [];
+            }
+        }
+
+        console.info('Detalle de venta a crédito encontrado:', {
+            codigoVisual: credito.codigo,
+            ventaId: credito.venta_id,
+            idVentaDetalle,
+            cantidad: filas.length,
+            idsEncontrados: filas.map(fila => fila.id_venta)
+        });
+
+        detallesEncontrados.push(...filas);
+        detallesPorCodigoOriginal.set(credito.codigo, filas);
+    }
+
+    const inventarioPorCodigo = await getInventarioPorProductoIds(
+        client,
+        detallesEncontrados.map(detalle => detalle.producto_id).filter(Boolean)
+    );
+
+    detallesPorCodigoOriginal.forEach((filas, codigo) => {
+        detallesPorCodigoOriginal.set(
+            codigo,
+            (filas || []).map(fila => normalizarDetalleProductoCredito(fila, inventarioPorCodigo.get(fila.producto_id)))
+        );
+    });
+
+    return detallesPorCodigoOriginal;
+}
+
+async function getVentasPorIds(client, ventaIds) {
+    const ventasPorId = new Map();
+    if (!ventaIds.length) {
+        return ventasPorId;
+    }
+
+    const { data, error } = await client
+        .from('ferre_ventas')
+        .select('id, id_venta')
+        .in('id', ventaIds);
+
+    if (error) {
+        console.warn('No se pudo resolver ferre_ventas para créditos:', error);
+        return ventasPorId;
+    }
+
+    (data || []).forEach(venta => {
+        ventasPorId.set(venta.id, venta);
+    });
+
+    return ventasPorId;
+}
+
+async function getInventarioPorProductoIds(client, productoIds) {
+    const codigos = [...new Set(productoIds || [])];
+    const inventarioPorCodigo = new Map();
+
+    if (!codigos.length) {
+        return inventarioPorCodigo;
+    }
+
+    const { data, error } = await client
+        .from('ferre_inventario')
+        .select('*')
+        .in('codigo', codigos);
+
+    if (error) {
+        console.warn('No se pudo resolver nombres de productos en inventario:', error);
+        return inventarioPorCodigo;
+    }
+
+    (data || []).forEach(producto => {
+        inventarioPorCodigo.set(producto.codigo, producto);
+    });
+
+    return inventarioPorCodigo;
+}
+
+function getCreditoDetalleRowId(codigo) {
+    return `credito-detalle-${String(codigo || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+async function toggleDetalleProductosCredito(codigo) {
+    const row = document.getElementById(getCreditoDetalleRowId(codigo));
+    if (!row) return;
+
+    if (row.style.display === 'table-row') {
+        row.style.display = 'none';
+        return;
+    }
+
+    row.style.display = 'table-row';
+    const cell = row.querySelector('td');
+    if (!cell) return;
+
+    if (detallesCreditoCache.has(codigo)) {
+        cell.innerHTML = renderDetallesProductosCredito(detallesCreditoCache.get(codigo));
+        return;
+    }
+
+    cell.innerHTML = `
+        <div class="credito-productos">
+            <span class="credito-productos-loading"><i class="fas fa-spinner fa-spin"></i> Cargando productos...</span>
+        </div>
+    `;
+
+    const credito = (resumenActual?.creditos?.otorgados || []).find(item => item.codigo === codigo);
+    const detallesPorCodigo = await getDetallesProductosVentasCredito(credito ? [credito] : [{ codigo }]);
+    const detalles = detallesPorCodigo.get(codigo) || [];
+    detallesCreditoCache.set(codigo, detalles);
+    cell.innerHTML = renderDetallesProductosCredito(detalles);
+}
+
+function renderDetallesProductosCredito(detalles) {
+    if (!detalles || !detalles.length) {
+        return `
+            <div class="credito-productos">
+                <span class="credito-productos-empty">No se encontraron productos para esta venta.</span>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="credito-productos">
+            <table class="data-table credito-productos-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>PU</th>
+                        <th>PT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${detalles.map(detalle => `
+                        <tr>
+                            <td>${detalle.producto}</td>
+                            <td>${detalle.cantidad}</td>
+                            <td>${formatCurrency(detalle.pu)}</td>
+                            <td>${formatCurrency(detalle.pt)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function normalizarDetalleProductoCredito(item, inventario) {
+    const producto = inventario?.nombre
+        || inventario?.descripcion
+        || inventario?.producto
+        || item.nombre_producto
+        || item.producto_nombre
+        || item.descripcion_producto
+        || item.descripcion
+        || item.producto
+        || item.nombre
+        || item.producto_id
+        || 'Producto';
+    const cantidad = Number(item.cantidad || item.qty || item.unidades || 0);
+    const pu = Number(item.precio_unitario || item.precio || item.pu || item.valor_unitario || 0);
+    const pt = Number(item.precio_total || item.total || item.subtotal || item.pt || (cantidad * pu) || 0);
+
+    return {
+        producto,
+        cantidad: Number.isInteger(cantidad) ? cantidad : cantidad.toFixed(2),
+        pu,
+        pt
+    };
 }
 
 /**
@@ -401,7 +686,7 @@ function verDetallePagosCxC() {
             <tr>
                 <td>${formatTime(pago.fecha_pago)}</td>
                 <td><strong>${pago.cuentas_por_cobrar?.codigo || 'N/A'}</strong></td>
-                <td>${pago.cuentas_por_cobrar?.deudores?.nombre || 'N/A'}</td>
+                <td>${getDeudorCreditoNombre(pago.cuentas_por_cobrar || {})}</td>
                 <td>${formatCurrency(pago.monto_pago)}</td>
                 <td>${pago.forma_pago}</td>
             </tr>
@@ -490,7 +775,7 @@ function verDetallePagosProveedores() {
                             <span class="detalle-monto">${formatCurrency(pago.monto_pago)}</span>
                         </div>
                         <div class="detalle-info">
-                            <div><strong>Pago a Proveedor</strong></div>
+                            <div><strong>${getProveedorPagoNombre(pago)}</strong></div>
                             <div style="font-size: 0.9rem; color: var(--text-light);">
                                 ${pago.metodo_pago} | ${pago.tipo_pago}
                             </div>
@@ -509,6 +794,34 @@ function verDetallePagosProveedores() {
     `;
     
     mostrarModal('Pagos a Proveedores', html, true);
+}
+
+function getProveedorPagoNombre(pago) {
+    const candidatos = [
+        pago.proveedor_nombre,
+        pago.nombre_proveedor,
+        pago.proveedor?.empresa,
+        pago.ferre_proveedores?.empresa,
+        pago.factura?.proveedor_empresa,
+        pago.factura?.empresa_proveedor,
+        pago.factura?.ferre_proveedores?.empresa,
+        pago.razon_social,
+        pago.proveedor,
+        pago.ferre_proveedores?.nombre,
+        pago.ferre_proveedores?.razon_social,
+        pago.proveedor?.nombre,
+        pago.proveedor?.razon_social,
+        pago.ferre_facturas_proveedores?.proveedor_nombre,
+        pago.ferre_facturas_proveedores?.nombre_proveedor,
+        pago.ferre_facturas_proveedores?.ferre_proveedores?.nombre,
+        pago.ferre_facturas_proveedores?.ferre_proveedores?.razon_social,
+        pago.factura?.proveedor_nombre,
+        pago.factura?.nombre_proveedor,
+        pago.factura?.proveedor?.nombre,
+        pago.factura?.proveedor?.razon_social
+    ];
+
+    return candidatos.find(valor => typeof valor === 'string' && valor.trim())?.trim() || 'Proveedor no identificado';
 }
 
 /**

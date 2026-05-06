@@ -4,28 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Financiero</title>
-    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/styles.css?v=2.0.6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="dashboard-body">
-    <!-- Header del Dashboard -->
-    <div class="dashboard-header">
-        <div class="header-title">
-            <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="dashboard-logo">
-            <h1>Dashboard Financiero</h1>
+    <div class="dashboard-status-row">
+        <!-- Alertas y Avisos -->
+        <div id="alertsContainer" class="alerts-container"></div>
+
+        <!-- Barra compacta del Dashboard -->
+        <div class="dashboard-header dashboard-toolbar">
+            <div class="dashboard-header-actions">
+                <div class="header-date">
+                    <i class="fas fa-calendar-day"></i>
+                    <span id="currentDate"></span>
+                </div>
+                <button id="refreshBtn" class="btn-refresh">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
         </div>
-        <div class="header-date">
-            <i class="fas fa-calendar-day"></i>
-            <span id="currentDate"></span>
-        </div>
-        <button id="refreshBtn" class="btn-refresh">
-            <i class="fas fa-sync-alt"></i> Actualizar
-        </button>
     </div>
 
-    <!-- Alertas y Avisos -->
-    <div id="alertsContainer" class="alerts-container"></div>
-
+    <div class="dashboard-workspace">
     <!-- Dashboard Cards -->
     <div class="dashboard-cards">
         <!-- Card 1: Ventas -->
@@ -185,7 +186,7 @@
             </div>
             <div class="conciliacion-divider"></div>
             <div class="conciliacion-row total">
-                <span class="concil-label"><strong>Caja Física Esperada:</strong></span>
+                <span class="concil-label"><strong>Movimiento Físico Neto:</strong></span>
                 <span class="concil-value total-value" id="concilTotalFisica">$0.00</span>
             </div>
             <div class="conciliacion-row total">
@@ -198,7 +199,7 @@
             </div>
             <div class="conciliacion-divider"></div>
             <div class="conciliacion-row total">
-                <span class="concil-label"><strong>Total General Esperado:</strong></span>
+                <span class="concil-label"><strong>Caja Física Final Esperada:</strong></span>
                 <span class="concil-value total-value" id="concilTotal">$0.00</span>
             </div>
             <div class="conciliacion-row warning-row">
@@ -206,6 +207,7 @@
                 <span class="concil-value" id="concilVentasCredito">$0.00</span>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- Modal para Detalles -->
@@ -240,7 +242,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../assets/js/contabilidad-supabase.js"></script>
     <script src="../assets/js/contabilidad-auth.js"></script>
-    <script src="../assets/js/contabilidad-config.js"></script>
-    <script src="../assets/js/dashboard.js"></script>
+    <script src="../assets/js/contabilidad-config.js?v=2.0.6"></script>
+    <script src="../assets/js/dashboard.js?v=2.0.6"></script>
 </body>
 </html>
