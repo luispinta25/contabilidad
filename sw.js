@@ -1,6 +1,6 @@
 importScripts("assets/js/app-version.js");
 
-const APP_VERSION = self.CONTABILIDAD_APP?.version || "2.5.3";
+const APP_VERSION = self.CONTABILIDAD_APP?.version || "2.5.4";
 const CACHE_NAME = `contabilidad-${APP_VERSION}`;
 const APP_SHELL = [
     "./",

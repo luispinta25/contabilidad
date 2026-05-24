@@ -118,6 +118,27 @@
                 </div>
             </div>
 
+            <div class="cambios-dinero-panel" id="cambiosDineroPanel" style="display: none;">
+                <div class="cambios-dinero-header">
+                    <div>
+                        <span class="resume-label">Cambios de dinero</span>
+                        <span class="cambios-dinero-subtitle" id="cambiosDineroCantidad">0 movimientos</span>
+                    </div>
+                    <span class="resume-value" id="cambiosDineroNeto">$0.00</span>
+                </div>
+                <div class="cambios-dinero-summary">
+                    <div>
+                        <span class="resume-label">Entra a caja</span>
+                        <span class="cambios-dinero-value positive" id="cambiosDineroEntrada">$0.00</span>
+                    </div>
+                    <div>
+                        <span class="resume-label">Sale de caja</span>
+                        <span class="cambios-dinero-value negative" id="cambiosDineroSalida">$0.00</span>
+                    </div>
+                </div>
+                <div class="cambios-dinero-list" id="cambiosDineroLista"></div>
+            </div>
+
             <!-- Desglose por Denominaciones -->
             <div class="denominaciones-container" id="denominacionesContainer">
                 <div class="denominaciones-header">
@@ -824,6 +845,84 @@
     font-weight: 600;
     color: #111827;
 }
+.cambios-dinero-panel {
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #f8fbff;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+.cambios-dinero-header,
+.cambios-dinero-summary,
+.cambios-dinero-item {
+    display: grid;
+    gap: 10px;
+    align-items: center;
+}
+.cambios-dinero-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 12px;
+}
+.cambios-dinero-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 10px;
+}
+.cambios-dinero-summary > div {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.cambios-dinero-subtitle {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+.cambios-dinero-value {
+    display: block;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+.cambios-dinero-value.positive {
+    color: #047857;
+}
+.cambios-dinero-value.negative {
+    color: #b91c1c;
+}
+.cambios-dinero-list {
+    display: grid;
+    gap: 8px;
+}
+.cambios-dinero-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 9px 11px;
+}
+.cambios-dinero-badge {
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 8px;
+}
+.cambios-dinero-badge.positive {
+    background: #059669;
+}
+.cambios-dinero-badge.negative {
+    background: #dc2626;
+}
+.cambios-dinero-code {
+    display: block;
+    color: #111827;
+    font-weight: 700;
+}
+.cambios-dinero-note {
+    display: block;
+    color: #64748b;
+    font-size: 0.82rem;
+}
 @media (max-width: 768px) {
     .module-controls {
         flex-direction: column;
@@ -1270,6 +1369,100 @@
     font-size: 1.18rem;
 }
 
+.cambios-dinero-panel {
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #f8fbff;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+
+.cambios-dinero-header,
+.cambios-dinero-summary,
+.cambios-dinero-item {
+    display: grid;
+    gap: 10px;
+    align-items: center;
+}
+
+.cambios-dinero-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 12px;
+}
+
+.cambios-dinero-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 10px;
+}
+
+.cambios-dinero-summary > div {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.cambios-dinero-subtitle {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.cambios-dinero-value {
+    display: block;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.cambios-dinero-value.positive {
+    color: #047857;
+}
+
+.cambios-dinero-value.negative {
+    color: #b91c1c;
+}
+
+.cambios-dinero-list {
+    display: grid;
+    gap: 8px;
+}
+
+.cambios-dinero-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 9px 11px;
+}
+
+.cambios-dinero-badge {
+    border-radius: 999px;
+    color: #ffffff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 8px;
+}
+
+.cambios-dinero-badge.positive {
+    background: #059669;
+}
+
+.cambios-dinero-badge.negative {
+    background: #dc2626;
+}
+
+.cambios-dinero-code {
+    display: block;
+    color: #111827;
+    font-weight: 700;
+}
+
+.cambios-dinero-note {
+    display: block;
+    color: #64748b;
+    font-size: 0.82rem;
+}
+
 .denominaciones-container {
     background: #ffffff;
     border-color: #e5e7eb;
@@ -1522,6 +1715,12 @@
         grid-template-columns: 1fr;
     }
 
+    .cambios-dinero-header,
+    .cambios-dinero-summary,
+    .cambios-dinero-item {
+        grid-template-columns: 1fr;
+    }
+
     .denominaciones-footer {
         align-items: stretch;
         justify-content: flex-start;
@@ -1743,6 +1942,117 @@
         if (normalized > 0) return `+${absValue}%`;
         if (normalized < 0) return `-${absValue}%`;
         return `${absValue}%`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getCodigoCambioDinero(movimiento) {
+        if (typeof getCodigoMovimiento === 'function') {
+            return getCodigoMovimiento(movimiento);
+        }
+
+        const candidatos = [
+            movimiento?.id_venta,
+            movimiento?.codigo,
+            movimiento?.codigo_venta,
+            movimiento?.referencia,
+            movimiento?.documento,
+            movimiento?.motivo
+        ];
+
+        for (const candidato of candidatos) {
+            if (typeof candidato !== 'string') continue;
+            const match = candidato.trim().match(/\b([A-Z]\d{3,})\b/i);
+            if (match) return match[1].toUpperCase();
+        }
+
+        return '';
+    }
+
+    function getCambiosDineroResumen(resumen) {
+        const ingresosBanco = (resumen?.transferencias?.ingresos || [])
+            .filter(t => getCodigoCambioDinero(t).startsWith('C'))
+            .map(t => ({
+                ...t,
+                codigoCambio: getCodigoCambioDinero(t),
+                efectoCaja: 'salida',
+                efectoLabel: 'Sale de caja',
+                montoFisico: -parseMonto(t.monto)
+            }));
+
+        const egresosBanco = (resumen?.transferencias?.egresos || [])
+            .filter(t => getCodigoCambioDinero(t).startsWith('C'))
+            .map(t => ({
+                ...t,
+                codigoCambio: getCodigoCambioDinero(t),
+                efectoCaja: 'entrada',
+                efectoLabel: 'Entra a caja',
+                montoFisico: parseMonto(t.monto)
+            }));
+
+        const movimientos = [...ingresosBanco, ...egresosBanco]
+            .sort((a, b) => new Date(b.fechahora || 0).getTime() - new Date(a.fechahora || 0).getTime());
+        const entrada = egresosBanco.reduce((sum, item) => sum + parseMonto(item.monto), 0);
+        const salida = ingresosBanco.reduce((sum, item) => sum + parseMonto(item.monto), 0);
+
+        return {
+            movimientos,
+            entrada,
+            salida,
+            neto: entrada - salida
+        };
+    }
+
+    function renderCambiosDinero(resumen) {
+        const panel = document.getElementById('cambiosDineroPanel');
+        const lista = document.getElementById('cambiosDineroLista');
+        if (!panel || !lista) return;
+
+        const detalle = getCambiosDineroResumen(resumen);
+        if (detalle.movimientos.length === 0) {
+            panel.style.display = 'none';
+            lista.innerHTML = '';
+            updateText('cambiosDineroCantidad', '0 movimientos');
+            updateText('cambiosDineroEntrada', formatCurrency(0));
+            updateText('cambiosDineroSalida', formatCurrency(0));
+            updateText('cambiosDineroNeto', formatCurrency(0));
+            return;
+        }
+
+        panel.style.display = 'block';
+        updateText('cambiosDineroCantidad', `${detalle.movimientos.length} movimiento${detalle.movimientos.length !== 1 ? 's' : ''}`);
+        updateText('cambiosDineroEntrada', formatCurrency(detalle.entrada));
+        updateText('cambiosDineroSalida', formatCurrency(detalle.salida));
+        updateText('cambiosDineroNeto', formatCurrency(detalle.neto));
+
+        lista.innerHTML = detalle.movimientos.map(item => {
+            const esEntrada = item.efectoCaja === 'entrada';
+            const fecha = item.fechahora ? new Date(item.fechahora) : null;
+            const hora = fecha && !Number.isNaN(fecha.getTime())
+                ? fecha.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+                : '';
+            const motivo = item.motivo ? escapeHtml(item.motivo) : 'Cambio de dinero';
+            const codigo = escapeHtml(item.codigoCambio || 'C');
+            const monto = `${esEntrada ? '+' : '-'}${formatCurrency(Math.abs(item.montoFisico))}`;
+
+            return `
+                <div class="cambios-dinero-item">
+                    <span class="cambios-dinero-badge ${esEntrada ? 'positive' : 'negative'}">${esEntrada ? 'Entrada' : 'Salida'}</span>
+                    <span>
+                        <span class="cambios-dinero-code">${codigo}</span>
+                        <span class="cambios-dinero-note">${escapeHtml(item.efectoLabel)}${hora ? ` · ${hora}` : ''} · ${motivo}</span>
+                    </span>
+                    <span class="cambios-dinero-value ${esEntrada ? 'positive' : 'negative'}">${monto}</span>
+                </div>
+            `;
+        }).join('');
     }
 
     function buildSemanaActualRange(baseDate = new Date()) {
@@ -2705,6 +3015,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('cajaEsperadaValor', formatCurrency(esperada));
         updateText('cajaVirtualValor', formatCurrency(netoVirtual));
         updateText('cajaSaldoBancoValor', formatCurrency(saldoBanco));
+        renderCambiosDinero(resumen);
 
         const inputContado = document.getElementById('cajaCierreContado');
         const notas = document.getElementById('cajaCierreNotas');
