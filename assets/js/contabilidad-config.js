@@ -536,6 +536,29 @@ async function getTransferenciasHoy(targetDate = new Date()) {
     }
 }
 
+function getCodigoMovimiento(movimiento) {
+    const candidatos = [
+        movimiento?.id_venta,
+        movimiento?.codigo,
+        movimiento?.codigo_venta,
+        movimiento?.referencia,
+        movimiento?.documento,
+        movimiento?.motivo
+    ];
+
+    for (const candidato of candidatos) {
+        if (typeof candidato !== 'string') continue;
+        const match = candidato.trim().match(/\b([A-Z]\d{3,})\b/i);
+        if (match) return match[1].toUpperCase();
+    }
+
+    return '';
+}
+
+function codigoEmpiezaCon(movimiento, prefijo) {
+    return getCodigoMovimiento(movimiento).startsWith(prefijo);
+}
+
 /**
  * Obtiene el saldo actual de caja virtual (tabla saldo_actual)
  */
@@ -690,17 +713,34 @@ async function calcularResumenDiario(fecha = new Date()) {
         const pagosProveedoresOtros = totalPagosProveedores - pagosProveedoresEfectivo - pagosProveedoresTransferencia;
 
         const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
+        const transferenciasGastos = transferencias.egresos.filter(t => codigoEmpiezaCon(t, 'G'));
+        const totalGastosTransferencia = transferenciasGastos.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
+        const gastosEfectivo = Math.max(totalGastos - totalGastosTransferencia, 0);
 
         // Filtrar transferencias manuales (que no son de ventas ni de proveedores)
-        const transferenciasIngresoManuales = transferencias.ingresos.filter(t => 
-            !t.id_venta && !(t.motivo || '').toLowerCase().includes('venta pos') && !(t.motivo || '').toLowerCase().includes('pago a')
+        const transferenciasIngresoManuales = transferencias.ingresos.filter(t =>
+            !t.id_venta
+            && !codigoEmpiezaCon(t, 'S')
+            && !codigoEmpiezaCon(t, 'C')
+            && !codigoEmpiezaCon(t, 'G')
+            && !(t.motivo || '').toLowerCase().includes('venta pos')
+            && !(t.motivo || '').toLowerCase().includes('pago a')
         );
         const totalTransferenciasIngresoManuales = transferenciasIngresoManuales.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
 
-        const transferenciasEgresoManuales = transferencias.egresos.filter(t => 
-            t.fotografia !== 'https://urlnodisponible.com' && !(t.motivo || '').toLowerCase().includes('pago a')
+        const transferenciasEgresoManuales = transferencias.egresos.filter(t =>
+            t.fotografia !== 'https://urlnodisponible.com'
+            && !codigoEmpiezaCon(t, 'C')
+            && !codigoEmpiezaCon(t, 'G')
+            && !(t.motivo || '').toLowerCase().includes('pago a')
         );
         const totalTransferenciasEgresoManuales = transferenciasEgresoManuales.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
+        const cambiosDineroIngresoBanco = transferencias.ingresos
+            .filter(t => codigoEmpiezaCon(t, 'C'))
+            .reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
+        const cambiosDineroEgresoBanco = transferencias.egresos
+            .filter(t => codigoEmpiezaCon(t, 'C'))
+            .reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
 
         const otrosIngresos = 0; // TODO: Implementar cuando exista tabla de otros ingresos
         
@@ -717,16 +757,20 @@ async function calcularResumenDiario(fecha = new Date()) {
         const cajaFisicaIngresos = {
             ventas: totalVentasEfectivo,
             pagosCxC: pagosCxCEfectivo,
-            otros: 0
+            otros: 0,
+            cambiosDinero: cambiosDineroEgresoBanco
         };
         const cajaFisicaEgresos = {
             proveedores: pagosProveedoresEfectivo,
-            gastos: totalGastos,
-            // Si das efectivo a cambio de una transferencia, es una salida de efectivo (egreso físico)
-            transferenciasManuales: totalTransferenciasIngresoManuales 
+            gastos: gastosEfectivo,
+            // Si das efectivo a cambio de una transferencia, es una salida de efectivo (egreso físico).
+            // Los cambios CXXXX se separan para que el efecto sea claro:
+            // ingreso bancario CXXXX resta caja física; egreso bancario CXXXX suma caja física.
+            transferenciasManuales: totalTransferenciasIngresoManuales,
+            cambiosDinero: cambiosDineroIngresoBanco
         };
-        const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros
-            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.transferenciasManuales;
+        const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros + cajaFisicaIngresos.cambiosDinero
+            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
 
         const cajaVirtualIngresos = {
             // transferencias.totalIngresos ya incluye las ventas por transferencia y posiblemente pagos CxC si se registran ahí
@@ -805,6 +849,8 @@ async function calcularResumenDiario(fecha = new Date()) {
                     otros: pagosProveedoresOtros
                 },
                 gastos: totalGastos,
+                gastosEfectivo,
+                gastosTransferencia: totalGastosTransferencia,
                 transferencias: 0, // Ya no sumamos transferencias a los egresos
                 cantidad: totalEgresosMovimientos,
                 listaProveedores: pagosProveedores,
