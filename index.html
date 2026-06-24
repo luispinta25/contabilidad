@@ -6,7 +6,7 @@
     <title>Contabilidad - Ferrisoluciones</title>
     <link rel="stylesheet" href="assets/css/styles.css?v=2.0.6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="assets/js/app-version.js?v=2.5.4"></script>
+    <script src="assets/js/app-version.js?v=2.6.0"></script>
 </head>
 <body>
     <!-- Login Container -->
@@ -16,7 +16,7 @@
                 <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="login-logo">
                 <h2>Contabilidad Ferrisoluciones</h2>
                 <p>Sistema de Gestión Financiera</p>
-                <span id="loginVersionBadge" class="app-version-badge login-version-badge">v2.5.4</span>
+                <span id="loginVersionBadge" class="app-version-badge login-version-badge">v2.6.0</span>
             </div>
             <form id="contabilidadLoginForm" class="login-form">
                 <div class="form-group">
@@ -47,7 +47,7 @@
                 <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="app-logo">
                 <div class="app-title-group">
                     <h1>Contabilidad Ferrisoluciones</h1>
-                    <span id="appVersionBadge" class="app-version-badge">v2.5.4</span>
+                    <span id="appVersionBadge" class="app-version-badge">v2.6.0</span>
                 </div>
             </div>
             <nav class="main-nav" aria-label="Navegación principal">
@@ -138,7 +138,7 @@
         });
 
         function initAppVersion() {
-            const version = window.CONTABILIDAD_APP?.version || '2.5.4';
+            const version = window.CONTABILIDAD_APP?.version || '2.6.0';
             const badges = [
                 document.getElementById('appVersionBadge'),
                 document.getElementById('loginVersionBadge')
@@ -306,6 +306,8 @@
                 `;
             } else if (moduleName === 'caja-diaria') {
                 await loadCajaDiariaModule(container);
+            } else if (moduleName === 'reportes') {
+                await loadReportesModule(container);
             } else {
                 // Placeholder para otros módulos
                 container.innerHTML = `
@@ -361,6 +363,53 @@
                     <div class="module-placeholder">
                         <i class="fas fa-exclamation-triangle fa-3x"></i>
                         <h2>Error al cargar Caja Diaria</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadReportesModule(container) {
+            try {
+                container.innerHTML = `
+                    <div class="loading-message">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Cargando módulo de Reportes...</p>
+                    </div>
+                `;
+
+                const response = await fetch('modules/reportes.html?v=2.0.6');
+                if (!response.ok) throw new Error('No se pudo cargar el módulo modules/reportes.html');
+
+                const html = await response.text();
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+
+                const scripts = temp.querySelectorAll('script');
+                const scriptContents = [];
+                scripts.forEach(script => {
+                    scriptContents.push(script.textContent);
+                    script.remove();
+                });
+
+                container.innerHTML = temp.innerHTML;
+
+                scriptContents.forEach(content => {
+                    const scriptEl = document.createElement('script');
+                    scriptEl.textContent = content;
+                    document.body.appendChild(scriptEl);
+                    document.body.removeChild(scriptEl);
+                });
+
+                if (typeof initReportes === 'function') {
+                    initReportes();
+                }
+            } catch (error) {
+                console.error('Error al cargar Reportes:', error);
+                container.innerHTML = `
+                    <div class="module-placeholder">
+                        <i class="fas fa-exclamation-triangle fa-3x"></i>
+                        <h2>Error al cargar Reportes</h2>
                         <p>${error.message}</p>
                     </div>
                 `;

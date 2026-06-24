@@ -1,0 +1,1514 @@
+<div class="reportes-wrapper">
+    <style>
+        .reportes-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            animation: reportesFadeIn 0.3s ease-out;
+        }
+
+        @keyframes reportesFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reportes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            flex-shrink: 0;
+        }
+
+        .reportes-header .header-left h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+
+        .reportes-header .header-left h2 i {
+            color: #fbc318;
+        }
+
+        .reportes-header .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .reportes-header .last-updated {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-right: 8px;
+        }
+
+        .reportes-header .btn-refresh {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background-color: #0f172a;
+            color: #ffffff;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reportes-header .btn-refresh:hover:not(:disabled) {
+            background-color: #fbc318;
+            color: #0f172a;
+            border-color: #fbc318;
+            transform: translateY(-1px);
+        }
+
+        .reportes-header .btn-pdf {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background-color: #dc2626;
+            color: #ffffff;
+            border: 1px solid #b91c1c;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reportes-header .btn-pdf:hover:not(:disabled) {
+            background-color: #b91c1c;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.25);
+        }
+
+        .reportes-header .btn-refresh:disabled,
+        .reportes-header .btn-pdf:disabled {
+            background-color: #cbd5e1;
+            color: #94a3b8;
+            border-color: #cbd5e1;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .report-content-panel {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        .report-view {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .view-header {
+            margin-bottom: 4px;
+        }
+
+        .view-header h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+        }
+
+        .view-header .view-description {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin: 0;
+        }
+
+        /* CARD GRID STYLES FOR INVENTORY MODAL */
+        .totales-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+
+        .total-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.25s ease-out;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .total-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .total-card .card-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .total-card .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .total-card.provider { border-left: 5px solid #3b82f6; }
+        .total-card.sale { border-left: 5px solid #10b981; }
+        .total-card.utility { border-left: 5px solid #fbc318; }
+
+        .total-card.provider .card-icon { background-color: #eff6ff; color: #3b82f6; }
+        .total-card.sale .card-icon { background-color: #ecfdf5; color: #10b981; }
+        .total-card.utility .card-icon { background-color: #fefce8; color: #d97706; }
+
+        .total-card .card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .total-card .card-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: #0f172a;
+            font-family: 'Courier New', Courier, monospace;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .total-card .card-footer {
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 10px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+        }
+
+        /* BALANCE SHEET BANNERS */
+        .balance-kpi-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .balance-kpi-card {
+            flex: 1;
+            min-width: 200px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .balance-kpi-card .kpi-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .balance-kpi-card .kpi-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .balance-kpi-card.assets { border-top: 4px solid #3b82f6; .kpi-value { color: #2563eb; } }
+        .balance-kpi-card.liabilities { border-top: 4px solid #ef4444; .kpi-value { color: #dc2626; } }
+        .balance-kpi-card.equity { border-top: 4px solid #10b981; .kpi-value { color: #059669; } }
+
+        .balance-sheet-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            animation: reportesFadeIn 0.3s ease-out;
+        }
+
+        /* SHEET DOCUMENT STYLING */
+        .document-sheet {
+            background-color: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .document-header {
+            text-align: center;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 20px;
+        }
+
+        .document-header h4 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #0f172a;
+        }
+
+        .document-header h5 {
+            margin: 6px 0 0 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .document-header p {
+            margin: 4px 0 0 0;
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .document-header .currency-tag {
+            display: block;
+            font-size: 0.72rem;
+            color: #94a3b8;
+            font-style: italic;
+            margin-top: 10px;
+        }
+
+        .sheet-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .sheet-column {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .sheet-column .section-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 6px;
+            color: #0f172a;
+            letter-spacing: 0.5px;
+        }
+
+        .subsection {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-left: 8px;
+        }
+
+        .subsection-title {
+            font-size: 0.82rem;
+            font-weight: 750;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .row-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            color: #334155;
+            padding-left: 12px;
+            align-items: baseline;
+        }
+
+        .row-item .item-value {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 600;
+        }
+
+        .row-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            font-weight: 750;
+            color: #0f172a;
+            border-top: 1px solid #e2e8f0;
+            padding: 6px 0 6px 12px;
+            margin-top: 2px;
+            align-items: baseline;
+        }
+
+        .row-total .total-value {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .grand-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #ffffff;
+            background-color: #0f172a;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-top: auto;
+            align-items: baseline;
+        }
+
+        .grand-total-row .grand-total-value {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .double-underline {
+            border-bottom: 4px double #0f172a;
+        }
+
+        /* BOTONERA SUBMÓDULOS DE ANEXOS */
+        .submodules-panel {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn-submodule {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background-color: #ffffff;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .btn-submodule:hover {
+            background-color: #0f172a;
+            color: #fbc318;
+            border-color: #0f172a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-submodule i {
+            font-size: 1.05rem;
+        }
+
+        /* MODALS DIALOGS SYSTEM WITH GLASSMORPHISM BACKDROP */
+        dialog.report-modal {
+            border: none;
+            border-radius: 12px;
+            padding: 0;
+            max-width: 800px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            background-color: #ffffff;
+            overflow: hidden;
+            position: fixed;
+            inset: 0;
+            margin: auto;
+            animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        dialog.report-modal::backdrop {
+            background-color: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 16px 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header h3 i {
+            color: #fbc318;
+        }
+
+        .modal-close-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: color 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close-btn:hover {
+            color: #ffffff;
+        }
+
+        .modal-body {
+            padding: 24px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        /* TABLAS Y GRIDS INTERNOS DE MODAL */
+        .modal-body .totales-grid {
+            margin-top: 0;
+        }
+
+        .modal-body .table-container {
+            margin-bottom: 0;
+            box-shadow: none;
+            border-radius: 8px;
+        }
+
+        /* ESTILOS DE TABLAS DENTRO DE MODALES */
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .report-table th {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.9rem;
+            color: #334155;
+        }
+
+        .report-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .report-table th.col-num,
+        .report-table td.col-num {
+            text-align: center;
+        }
+
+        .report-table th.col-price,
+        .report-table td.col-price {
+            text-align: right;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 600;
+        }
+
+        /* LOADING AND ERROR STATES */
+        .report-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            color: #64748b;
+            gap: 16px;
+        }
+
+        .report-loading i {
+            font-size: 2.2rem;
+            color: #fbc318;
+        }
+
+        .report-error {
+            display: flex;
+            gap: 16px;
+            background-color: #fef2f2;
+            border: 1px solid #fee2e2;
+            border-left: 6px solid #ef4444;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-top: 12px;
+            animation: reportErrorShake 0.4s ease;
+        }
+
+        @keyframes reportErrorShake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        .report-error .error-icon {
+            font-size: 1.8rem;
+            color: #ef4444;
+            flex-shrink: 0;
+        }
+
+        .report-error .error-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .report-error .error-details h4 {
+            color: #991b1b;
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .report-error .error-details p {
+            color: #b91c1c;
+            font-size: 0.88rem;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .report-error .error-details .error-hint {
+            color: #7f1d1d;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-top: 6px;
+            background-color: #fee2e2;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid #fecaca;
+        }
+
+        /* RESPONSIVE LAYOUT */
+        @media (max-width: 900px) {
+            .sheet-columns {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .grand-total-row {
+                margin-top: 12px;
+            }
+        }
+    </style>
+
+    <div class="reportes-header">
+        <div class="header-left">
+            <h2><i class="fas fa-file-invoice-dollar"></i> Situación Financiera</h2>
+        </div>
+        <div class="header-right">
+            <span id="reportesLastUpdated" class="last-updated">Actualizando...</span>
+            <button id="reportesRefreshBtn" class="btn-refresh">
+                <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <button id="reportesPdfBtn" class="btn-pdf">
+                <i class="fas fa-file-pdf"></i> Exportar PDF
+            </button>
+        </div>
+    </div>
+
+    <div class="report-content-panel">
+        <!-- VISTA DEL REPORTE PRINCIPAL: BALANCE GENERAL -->
+        <div id="situacionFinancieraView" class="report-view">
+            <!-- Loading State -->
+            <div id="situacionLoading" class="report-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Generando y calculando Estado de Situación Financiera...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="situacionError" class="report-error" style="display: none;">
+                <div class="error-icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="error-details">
+                    <h4>Error al generar el Balance</h4>
+                    <p id="situacionErrorMessage">No se pudo recuperar la información de los activos y pasivos.</p>
+                    <p class="error-hint">
+                        Asegúrate de que las vistas <code>ferre_inventario_totales</code> y <code>ferre_v_deuda_proveedores</code> existan y tengan permisos de lectura habilitados en Supabase.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Contenido del balance -->
+            <div id="situacionContent" class="balance-sheet-container" style="display: none;">
+                <!-- KPI Banner -->
+                <div class="balance-kpi-row">
+                    <div class="balance-kpi-card assets">
+                        <span class="kpi-title">Total Activos</span>
+                        <span class="kpi-value" id="kpiTotalActivos">$0.00</span>
+                    </div>
+                    <div class="balance-kpi-card liabilities">
+                        <span class="kpi-title">Total Pasivos</span>
+                        <span class="kpi-value" id="kpiTotalPasivos">$0.00</span>
+                    </div>
+                    <div class="balance-kpi-card equity">
+                        <span class="kpi-title">Patrimonio Neto</span>
+                        <span class="kpi-value" id="kpiPatrimonioNeto">$0.00</span>
+                    </div>
+                </div>
+
+                <!-- Hoja de balance profesional -->
+                <div class="document-sheet" id="balanceSheetDocument">
+                    <div class="document-header">
+                        <h4>FERRISOLUCIONES</h4>
+                        <h5>ESTADO DE SITUACIÓN FINANCIERA</h5>
+                        <p id="balanceSheetDate">Al -- de -- de ----</p>
+                        <span class="currency-tag">Valores expresados en Dólares de los Estados Unidos (USD)</span>
+                    </div>
+
+                    <div class="sheet-columns">
+                        <!-- Columna ACTIVOS -->
+                        <div class="sheet-column">
+                            <div class="section-title">1. ACTIVOS</div>
+                            
+                            <div class="subsection">
+                                <div class="subsection-title">Activos Corrientes</div>
+                                <div class="row-item">
+                                    <span class="item-name">Inventario de Mercaderías (A costo proveedor)</span>
+                                    <span class="item-value" id="sheetInventarioVal">$0.00</span>
+                                </div>
+                                <div class="row-total">
+                                    <span class="total-name">Total Activos Corrientes</span>
+                                    <span class="total-value" id="sheetTotalActivosCorrientes">$0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="subsection">
+                                <div class="subsection-title">Activos No Corrientes (Propiedades, Planta y Equipo)</div>
+                                <div class="row-item">
+                                    <span class="item-name">Mobiliario y Equipos (Consolidado)</span>
+                                    <span class="item-value">$4,000.00</span>
+                                </div>
+                                <div class="row-total">
+                                    <span class="total-name">Total Activos No Corrientes</span>
+                                    <span class="total-value">$4,000.00</span>
+                                </div>
+                            </div>
+
+                            <div class="grand-total-row">
+                                <span class="grand-total-name">TOTAL ACTIVOS</span>
+                                <span class="grand-total-value" id="sheetGrandTotalActivos">$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Columna PASIVOS Y PATRIMONIO -->
+                        <div class="sheet-column">
+                            <div class="section-title">2. PASIVOS Y PATRIMONIO</div>
+                            
+                            <div class="subsection">
+                                <div class="subsection-title">Pasivos Corrientes</div>
+                                <div class="row-item">
+                                    <span class="item-name">Cuentas por Pagar a Proveedores</span>
+                                    <span class="item-value" id="sheetCuentasPagarVal">$0.00</span>
+                                </div>
+                                <div class="row-total">
+                                    <span class="total-name">Total Pasivos Corrientes</span>
+                                    <span class="total-value" id="sheetTotalPasivosCorrientes">$0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="grand-total-row" style="background-color: #475569; margin-top: 10px; margin-bottom: 20px;">
+                                <span class="grand-total-name">TOTAL PASIVOS</span>
+                                <span class="grand-total-value" id="sheetGrandTotalPasivos">$0.00</span>
+                            </div>
+
+                            <div class="subsection">
+                                <div class="subsection-title">3. PATRIMONIO</div>
+                                <div class="row-item font-italic">
+                                    <span class="item-name">Capital / Patrimonio Neto (Activos - Pasivos)</span>
+                                    <span class="item-value" id="sheetPatrimonioVal">$0.00</span>
+                                </div>
+                                <div class="row-total">
+                                    <span class="total-name">Total Patrimonio</span>
+                                    <span class="total-value" id="sheetTotalPatrimonio">$0.00</span>
+                                </div>
+                            </div>
+
+                            <div class="grand-total-row double-underline">
+                                <span class="grand-total-name">TOTAL PASIVOS Y PATRIMONIO</span>
+                                <span class="grand-total-value" id="sheetGrandTotalPasivosPatrimonio">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botonera de Submódulos de Anexos -->
+                <div class="submodules-panel">
+                    <button class="btn-submodule" id="btnModalInventario">
+                        <i class="fas fa-boxes-stacked" style="color: #3b82f6;"></i> Ver Anexo Inventario
+                    </button>
+                    <button class="btn-submodule" id="btnModalProveedores">
+                        <i class="fas fa-truck-ramp-box" style="color: #ef4444;"></i> Ver Detalle Proveedores
+                    </button>
+                    <button class="btn-submodule" id="btnModalMobiliario">
+                        <i class="fas fa-desktop" style="color: #10b981;"></i> Ver Detalle Mobiliario
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     MODALS / DIALOGS DE DETALLES
+     ========================================== -->
+
+<!-- Modulo Anexo 1: Totales de Inventario -->
+<dialog class="report-modal" id="modalInventario">
+    <div class="modal-header">
+        <h3><i class="fas fa-boxes-stacked"></i> Anexo 1: Totales de Inventario</h3>
+        <button class="modal-close-btn" onclick="document.getElementById('modalInventario').close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <p style="margin: 0 0 20px 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">
+            Resumen consolidado del stock valorizado. Consta de más de 2,200 productos activos en el punto de venta. Para mayor legibilidad contable, se resume su valoración total.
+        </p>
+        <div class="totales-grid">
+            <!-- Costo Proveedor -->
+            <div class="total-card provider" style="border-left: 5px solid #3b82f6;">
+                <div class="card-top">
+                    <div class="card-icon" style="background-color: #eff6ff; color: #3b82f6;"><i class="fas fa-warehouse"></i></div>
+                    <span class="card-title">Costo Total Inventario (Proveedor)</span>
+                </div>
+                <div class="card-value" id="modalValProveedor">$0.00</div>
+                <div class="card-footer">Valoración según facturas de compra</div>
+            </div>
+            <!-- Valor Venta -->
+            <div class="total-card sale" style="border-left: 5px solid #10b981;">
+                <div class="card-top">
+                    <div class="card-icon" style="background-color: #ecfdf5; color: #10b981;"><i class="fas fa-tags"></i></div>
+                    <span class="card-title">Valor Total de Venta</span>
+                </div>
+                <div class="card-value" id="modalValVenta">$0.00</div>
+                <div class="card-footer">Ingreso total estimado por venta</div>
+            </div>
+            <!-- Utilidad Potencial -->
+            <div class="total-card utility" style="border-left: 5px solid #fbc318;">
+                <div class="card-top">
+                    <div class="card-icon" style="background-color: #fefce8; color: #d97706;"><i class="fas fa-chart-line"></i></div>
+                    <span class="card-title">Utilidad Potencial</span>
+                </div>
+                <div class="card-value" id="modalValUtilidad">$0.00</div>
+                <div class="card-footer">Ganancia esperada en stock</div>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<!-- Modulo Anexo 2: Deuda a Proveedores -->
+<dialog class="report-modal" id="modalProveedores">
+    <div class="modal-header">
+        <h3><i class="fas fa-truck-ramp-box"></i> Anexo 2: Detalle de Deuda a Proveedores</h3>
+        <button class="modal-close-btn" onclick="document.getElementById('modalProveedores').close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="table-actions" style="margin-top: 0; margin-bottom: 16px;">
+            <div class="search-box">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="modalDeudaSearchInput" placeholder="Buscar proveedor por nombre...">
+            </div>
+        </div>
+        <div class="table-container" style="border: 1px solid #e2e8f0;">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Proveedor / Empresa</th>
+                        <th class="col-num">Facturas Pendientes</th>
+                        <th class="col-price">Total Deuda</th>
+                    </tr>
+                </thead>
+                <tbody id="modalDeudaTableBody">
+                    <!-- Dinámico -->
+                </tbody>
+            </table>
+            <div id="modalNoResultsMessage" class="no-results" style="display: none;">
+                <i class="fas fa-search-minus fa-2x"></i>
+                <p>No se encontraron proveedores que coincidan con la búsqueda.</p>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<!-- Modulo Anexo 3: Detalle Mobiliario -->
+<dialog class="report-modal" id="modalMobiliario">
+    <div class="modal-header">
+        <h3><i class="fas fa-desktop"></i> Anexo 3: Detalle de Mobiliario y Equipos</h3>
+        <button class="modal-close-btn" onclick="document.getElementById('modalMobiliario').close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="info-alert" style="margin-top: 0; margin-bottom: 16px;">
+            <div class="alert-icon"><i class="fas fa-info-circle"></i></div>
+            <div class="alert-content">
+                <h4>Detalle Consolidado de Activos</h4>
+                <p>Listado formal de los activos tecnológicos y mobiliario que forman parte del balance consolidado inicial de la ferretería.</p>
+            </div>
+        </div>
+        <div class="table-container" style="border: 1px solid #e2e8f0;">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Descripción del Activo</th>
+                        <th class="col-num">Cantidad Estimada</th>
+                        <th class="col-price">Valor Consolidado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Computadoras de escritorio ($800.00 c/u)</td>
+                        <td class="col-num">2</td>
+                        <td class="col-price">$1,600.00</td>
+                    </tr>
+                    <tr>
+                        <td>Cajas registradoras y gavetas de dinero ($60.00 c/u)</td>
+                        <td class="col-num">2</td>
+                        <td class="col-price">$120.00</td>
+                    </tr>
+                    <tr>
+                        <td>Impresoras térmicas de tickets y facturas (Puntos de venta)</td>
+                        <td class="col-num">2</td>
+                        <td class="col-price">$300.00</td>
+                    </tr>
+                    <tr>
+                        <td>Cámaras de vigilancia</td>
+                        <td class="col-num">Varios</td>
+                        <td class="col-price">$400.00</td>
+                    </tr>
+                    <tr>
+                        <td>Monitor para cámara de vigilancia</td>
+                        <td class="col-num">1</td>
+                        <td class="col-price">$100.00</td>
+                    </tr>
+                    <tr>
+                        <td>Estanterías metálicas, exhibidores y mostradores de local</td>
+                        <td class="col-num">Varios</td>
+                        <td class="col-price">$1,480.00</td>
+                    </tr>
+                    <tr style="background-color: #f8fafc; font-weight: 700;">
+                        <td>TOTAL MOBILIARIO Y EQUIPOS</td>
+                        <td class="col-num">-</td>
+                        <td class="col-price" style="font-size: 0.95rem; color: #0f172a;">$4,000.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    function initReportes() {
+        console.log("Inicializando módulo de Reportes consolidados...");
+        
+        let dbInventario = null; // Guardar datos de inventario
+        let rawDeudasData = [];  // Guardar datos de proveedores para filtrado
+
+        // Elementos de la cabecera
+        const refreshBtn = document.getElementById("reportesRefreshBtn");
+        const pdfBtn = document.getElementById("reportesPdfBtn");
+        const lastUpdatedEl = document.getElementById("reportesLastUpdated");
+
+        // Elementos de la vista principal
+        const situacionLoading = document.getElementById("situacionLoading");
+        const situacionError = document.getElementById("situacionError");
+        const situacionErrorMessage = document.getElementById("situacionErrorMessage");
+        const situacionContent = document.getElementById("situacionContent");
+
+        // Elementos del Balance Sheet
+        const kpiTotalActivos = document.getElementById("kpiTotalActivos");
+        const kpiTotalPasivos = document.getElementById("kpiTotalPasivos");
+        const kpiPatrimonioNeto = document.getElementById("kpiPatrimonioNeto");
+
+        const sheetInventarioVal = document.getElementById("sheetInventarioVal");
+        const sheetTotalActivosCorrientes = document.getElementById("sheetTotalActivosCorrientes");
+        const sheetGrandTotalActivos = document.getElementById("sheetGrandTotalActivos");
+        
+        const sheetCuentasPagarVal = document.getElementById("sheetCuentasPagarVal");
+        const sheetTotalPasivosCorrientes = document.getElementById("sheetTotalPasivosCorrientes");
+        const sheetGrandTotalPasivos = document.getElementById("sheetGrandTotalPasivos");
+        
+        const sheetPatrimonioVal = document.getElementById("sheetPatrimonioVal");
+        const sheetTotalPatrimonio = document.getElementById("sheetTotalPatrimonio");
+        const sheetGrandTotalPasivosPatrimonio = document.getElementById("sheetGrandTotalPasivosPatrimonio");
+        const balanceSheetDate = document.getElementById("balanceSheetDate");
+
+        // Elementos del modal de Inventario
+        const modalValProveedor = document.getElementById("modalValProveedor");
+        const modalValVenta = document.getElementById("modalValVenta");
+        const modalValUtilidad = document.getElementById("modalValUtilidad");
+
+        // Elementos del modal de Proveedores
+        const modalDeudaTableBody = document.getElementById("modalDeudaTableBody");
+        const modalDeudaSearchInput = document.getElementById("modalDeudaSearchInput");
+        const modalNoResultsMessage = document.getElementById("modalNoResultsMessage");
+
+        // Configuración de apertura de modals
+        document.getElementById("btnModalInventario").addEventListener("click", () => {
+            document.getElementById("modalInventario").showModal();
+        });
+        document.getElementById("btnModalProveedores").addEventListener("click", () => {
+            document.getElementById("modalProveedores").showModal();
+        });
+        document.getElementById("btnModalMobiliario").addEventListener("click", () => {
+            document.getElementById("modalMobiliario").showModal();
+        });
+
+        // Formateador de moneda (Dólares americanos USD)
+        function formatCurrency(value) {
+            if (value === null || value === undefined) return "$0.00";
+            const num = parseFloat(value);
+            if (isNaN(num)) return "$0.00";
+            return new Intl.NumberFormat("es-EC", {
+                style: "currency",
+                currency: "USD"
+            }).format(num);
+        }
+
+        // Obtener cliente Supabase
+        function getSupabase() {
+            return typeof window.getSupabaseClient === "function" 
+                ? window.getSupabaseClient() 
+                : (window.contabilidadSupabase ? window.contabilidadSupabase.getClient() : null);
+        }
+
+        // ==========================================
+        // CONSULTA Y CÁLCULO GENERAL DE DATOS
+        // ==========================================
+        async function fetchBalanceData() {
+            situacionLoading.style.display = "flex";
+            situacionContent.style.display = "none";
+            situacionError.style.display = "none";
+            refreshBtn.disabled = true;
+            pdfBtn.disabled = true;
+
+            try {
+                const supabase = getSupabase();
+                if (!supabase) throw new Error("No se pudo obtener el cliente de Supabase.");
+
+                // Consultar en paralelo totales de inventario y deudas
+                const [totalesRes, deudasRes] = await Promise.all([
+                    supabase.from("ferre_inventario_totales").select("*"),
+                    supabase.from("ferre_v_deuda_proveedores").select("*")
+                ]);
+
+                if (totalesRes.error) throw totalesRes.error;
+                if (deudasRes.error) throw deudasRes.error;
+
+                // Guardar datos en variables para reportes/modales
+                dbInventario = totalesRes.data && totalesRes.data.length > 0 ? totalesRes.data[0] : null;
+                rawDeudasData = deudasRes.data || [];
+
+                // 1. ACTIVOS
+                const valorInventario = dbInventario ? parseFloat(dbInventario.valor_total_inventario_proveedor || 0) : 0;
+                const valorMobiliario = 4000.00;
+                const totalActivos = valorInventario + valorMobiliario;
+
+                // 2. PASIVOS
+                let totalDeudaProveedores = 0;
+                rawDeudasData.forEach(item => {
+                    totalDeudaProveedores += parseFloat(item.total_deuda || 0);
+                });
+                const totalPasivos = totalDeudaProveedores;
+
+                // 3. PATRIMONIO
+                const patrimonioNeto = totalActivos - totalPasivos;
+                const totalPasivoYPatrimonio = totalPasivos + patrimonioNeto;
+
+                // --- Rellenar Banners KPIs ---
+                kpiTotalActivos.textContent = formatCurrency(totalActivos);
+                kpiTotalPasivos.textContent = formatCurrency(totalPasivos);
+                kpiPatrimonioNeto.textContent = formatCurrency(patrimonioNeto);
+
+                // --- Rellenar Hoja de Balance ---
+                sheetInventarioVal.textContent = formatCurrency(valorInventario);
+                sheetTotalActivosCorrientes.textContent = formatCurrency(valorInventario);
+                sheetGrandTotalActivos.textContent = formatCurrency(totalActivos);
+
+                sheetCuentasPagarVal.textContent = formatCurrency(totalDeudaProveedores);
+                sheetTotalPasivosCorrientes.textContent = formatCurrency(totalDeudaProveedores);
+                sheetGrandTotalPasivos.textContent = formatCurrency(totalPasivos);
+
+                sheetPatrimonioVal.textContent = formatCurrency(patrimonioNeto);
+                sheetTotalPatrimonio.textContent = formatCurrency(patrimonioNeto);
+                sheetGrandTotalPasivosPatrimonio.textContent = formatCurrency(totalPasivoYPatrimonio);
+
+                // Actualizar fecha
+                const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
+                const hoyStr = new Date().toLocaleDateString("es-EC", opcionesFecha);
+                balanceSheetDate.textContent = `Al ${hoyStr}`;
+
+                // --- Rellenar datos de Modales ---
+                // Modal de Inventario
+                if (dbInventario) {
+                    modalValProveedor.textContent = formatCurrency(dbInventario.valor_total_inventario_proveedor);
+                    modalValVenta.textContent = formatCurrency(dbInventario.valor_total_inventario_venta);
+                    modalValUtilidad.textContent = formatCurrency(dbInventario.utilidad_potencial);
+                }
+
+                // Modal de Proveedores
+                renderDeudasTableInModal(rawDeudasData);
+
+                // Mostrar contenido
+                situacionLoading.style.display = "none";
+                situacionContent.style.display = "flex";
+                pdfBtn.disabled = false;
+
+                updateLastUpdatedTime();
+            } catch (err) {
+                console.error("Error al calcular el Balance General:", err);
+                situacionLoading.style.display = "none";
+                situacionContent.style.display = "none";
+                situacionErrorMessage.textContent = err.message || "Error al realizar la consulta a la base de datos.";
+                situacionError.style.display = "flex";
+                lastUpdatedEl.textContent = "Error al actualizar";
+            } finally {
+                refreshBtn.disabled = false;
+            }
+        }
+
+        // Renderizar tabla de deudas en modal
+        function renderDeudasTableInModal(dataList) {
+            modalDeudaTableBody.innerHTML = "";
+
+            if (dataList.length === 0) {
+                modalNoResultsMessage.style.display = "flex";
+                return;
+            }
+
+            modalNoResultsMessage.style.display = "none";
+
+            dataList.forEach(item => {
+                const tr = document.createElement("tr");
+                
+                const tdProv = document.createElement("td");
+                tdProv.textContent = item.proveedor_empresa || "Sin Identificar";
+                tr.appendChild(tdProv);
+
+                const tdFact = document.createElement("td");
+                tdFact.className = "col-num";
+                tdFact.textContent = item.facturas_pendientes || 0;
+                tr.appendChild(tdFact);
+
+                const tdDeuda = document.createElement("td");
+                tdDeuda.className = "col-price";
+                tdDeuda.textContent = formatCurrency(item.total_deuda);
+                tr.appendChild(tdDeuda);
+
+                modalDeudaTableBody.appendChild(tr);
+            });
+        }
+
+        // Filtro del modal de proveedores
+        modalDeudaSearchInput.addEventListener("input", () => {
+            const query = modalDeudaSearchInput.value.toLowerCase().trim();
+            if (!query) {
+                renderDeudasTableInModal(rawDeudasData);
+                return;
+            }
+
+            const filtrados = rawDeudasData.filter(item => {
+                const nombre = String(item.proveedor_empresa || "").toLowerCase();
+                return nombre.includes(query);
+            });
+
+            renderDeudasTableInModal(filtrados);
+        });
+
+        // Actualizar hora de consulta
+        function updateLastUpdatedTime() {
+            const ahora = new Date();
+            const horaStr = ahora.toLocaleTimeString("es-EC", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            lastUpdatedEl.textContent = `Actualizado: ${horaStr}`;
+        }
+
+        // Evento botón actualizar
+        refreshBtn.addEventListener("click", fetchBalanceData);
+
+        // ==========================================
+        // EXPORTACIÓN A PDF CON ANEXOS
+        // ==========================================
+        function loadHtml2PdfLibrary() {
+            return new Promise((resolve, reject) => {
+                if (window.html2pdf) {
+                    resolve(window.html2pdf);
+                    return;
+                }
+                const script = document.createElement("script");
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+                script.onload = () => {
+                    if (window.html2pdf) {
+                        resolve(window.html2pdf);
+                    } else {
+                        reject(new Error("Librería html2pdf cargada pero no definida en window."));
+                    }
+                };
+                script.onerror = () => reject(new Error("No se pudo cargar la librería html2pdf.js desde el CDN."));
+                document.body.appendChild(script);
+            });
+        }
+
+        async function exportToPDF() {
+            if (!dbInventario) return;
+
+            pdfBtn.disabled = true;
+            pdfBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+
+            try {
+                // Crear estructura en memoria con páginas en Landscape (horizontal) para el reporte
+                const tempDiv = document.createElement("div");
+                tempDiv.style.padding = "0";
+                tempDiv.style.margin = "0";
+                tempDiv.style.fontFamily = "sans-serif";
+                tempDiv.style.color = "#0f172a";
+
+                const ahora = new Date();
+                const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
+                const hoyStr = ahora.toLocaleDateString("es-EC", opcionesFecha);
+                
+                // --- PÁGINA 1: ESTADO DE SITUACIÓN FINANCIERA ---
+                const p1Div = document.createElement("div");
+                p1Div.style.boxSizing = "border-box";
+                p1Div.style.padding = "25px";
+                p1Div.style.pageBreakAfter = "always";
+                p1Div.innerHTML = `
+                    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px;">
+                        <h2 style="margin: 0; font-size: 1.6rem; font-weight: 850; letter-spacing: 1px;">FERRISOLUCIONES</h2>
+                        <h3 style="margin: 4px 0 0 0; font-size: 1.2rem; font-weight: 700; color: #475569;">ESTADO DE SITUACIÓN FINANCIERA</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #64748b; font-weight: 600;">Al ${hoyStr}</p>
+                        <span style="display: block; font-size: 0.75rem; color: #94a3b8; font-style: italic; margin-top: 6px;">Valores expresados en Dólares de los Estados Unidos (USD)</span>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; table-layout: fixed;">
+                        <colgroup>
+                            <col style="width: 48%;">
+                            <col style="width: 4%;">
+                            <col style="width: 48%;">
+                        </colgroup>
+                        <tr>
+                            <!-- ACTIVOS -->
+                            <td style="vertical-align: top; border-right: 1.5px solid #cbd5e1; padding-right: 15px;">
+                                <div style="font-size: 1rem; font-weight: 800; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 12px; color: #0f172a;">1. ACTIVOS</div>
+                                
+                                <div style="margin-bottom: 14px;">
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Activos Corrientes</div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; margin-bottom: 6px;">
+                                        <span>Inventario de Mercaderías <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(Anexo 1)</span></span>
+                                        <span style="font-family: monospace; font-weight: 600;">${formatCurrency(dbInventario.valor_total_inventario_proveedor)}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding: 4px 0 4px 8px; margin-top: 4px;">
+                                        <span>Total Activos Corrientes</span>
+                                        <span style="font-family: monospace;">${formatCurrency(dbInventario.valor_total_inventario_proveedor)}</span>
+                                    </div>
+                                </div>
+
+                                <div style="margin-bottom: 14px;">
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Activos No Corrientes</div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; margin-bottom: 6px;">
+                                        <span>Mobiliario y Equipos <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(Anexo 3)</span></span>
+                                        <span style="font-family: monospace; font-weight: 600;">$4,000.00</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding: 4px 0 4px 8px; margin-top: 4px;">
+                                        <span>Total Activos No Corrientes</span>
+                                        <span style="font-family: monospace;">$4,000.00</span>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 800; color: #ffffff; background-color: #0f172a; padding: 8px 10px; border-radius: 4px; margin-top: 20px;">
+                                    <span>TOTAL ACTIVOS</span>
+                                    <span style="font-family: monospace;">${formatCurrency(parseFloat(dbInventario.valor_total_inventario_proveedor) + 4000)}</span>
+                                </div>
+                            </td>
+
+                            <!-- Separador -->
+                            <td></td>
+
+                            <!-- PASIVOS Y PATRIMONIO -->
+                            <td style="vertical-align: top; padding-left: 15px;">
+                                <div style="font-size: 1rem; font-weight: 800; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 12px; color: #0f172a;">2. PASIVOS Y PATRIMONIO</div>
+                                
+                                <div style="margin-bottom: 10px;">
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px;">Pasivos Corrientes</div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; margin-bottom: 6px;">
+                                        <span>Cuentas por Pagar Proveedores <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(Anexo 2)</span></span>
+                                        <span style="font-family: monospace; font-weight: 600;">${document.getElementById("sheetCuentasPagarVal").textContent}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding: 4px 0 4px 8px; margin-top: 4px;">
+                                        <span>Total Pasivos Corrientes</span>
+                                        <span style="font-family: monospace;">${document.getElementById("sheetTotalPasivosCorrientes").textContent}</span>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 800; color: #ffffff; background-color: #475569; padding: 6px 10px; border-radius: 4px; margin-bottom: 16px;">
+                                    <span>TOTAL PASIVOS</span>
+                                    <span style="font-family: monospace;">${document.getElementById("sheetGrandTotalPasivos").textContent}</span>
+                                </div>
+
+                                <div style="margin-bottom: 14px;">
+                                    <div style="font-size: 0.8rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px;">3. PATRIMONIO</div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; font-style: italic; margin-bottom: 6px;">
+                                        <span>Capital / Patrimonio Neto</span>
+                                        <span style="font-family: monospace; font-weight: 600;">${document.getElementById("sheetPatrimonioVal").textContent}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding: 4px 0 4px 8px; margin-top: 4px;">
+                                        <span>Total Patrimonio</span>
+                                        <span style="font-family: monospace;">${document.getElementById("sheetTotalPatrimonio").textContent}</span>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 800; color: #ffffff; background-color: #0f172a; padding: 8px 10px; border-radius: 4px; border-bottom: 4px double #0f172a; margin-top: 8px;">
+                                    <span>TOTAL PASIVO Y PATRIMONIO</span>
+                                    <span style="font-family: monospace;">${document.getElementById("sheetGrandTotalPasivosPatrimonio").textContent}</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top: 80px; display: flex; justify-content: space-around; font-size: 0.85rem;">
+                        <div style="text-align: center; width: 220px; border-top: 1px solid #0f172a; padding-top: 8px;">
+                            <strong>Ing. Luis Pinta</strong><br>Gerente General
+                        </div>
+                        <div style="text-align: center; width: 220px; border-top: 1px solid #0f172a; padding-top: 8px;">
+                            <strong>Contador Autorizado</strong><br>Contador General / C.P.A.
+                        </div>
+                    </div>
+                `;
+                tempDiv.appendChild(p1Div);
+
+                // --- PÁGINA 2: ANEXO 1 (INVENTARIO) ---
+                const p2Div = document.createElement("div");
+                p2Div.style.boxSizing = "border-box";
+                p2Div.style.padding = "25px";
+                p2Div.style.pageBreakAfter = "always";
+                p2Div.innerHTML = `
+                    <div style="border-bottom: 1.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 24px;">
+                        <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #0f172a;">ANEXO 1: RESUMEN DE VALORACIÓN DE INVENTARIO</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b; font-weight: 500;">Generado mediante sistema de control de existencias a la fecha de emisión.</p>
+                    </div>
+
+                    <div style="background-color: #eff6ff; border-left: 5px solid #3b82f6; padding: 15px; border-radius: 6px; margin-bottom: 24px; font-size: 0.88rem; color: #1e3a8a; line-height: 1.45;">
+                        <strong>Nota Informativa sobre Detalle de Inventario:</strong><br>
+                        El inventario físico y contable de <strong>Ferrisoluciones</strong> consta actualmente de más de <strong>2,200 productos</strong> activos y registrados en el sistema de ventas. Debido a la longitud de este listado detallado (estimado en más de 50 páginas impresas), se presenta esta valoración global consolidada como anexo de soporte para el Estado de Situación Financiera. Dicho listado detallado producto por producto se encuentra custodiado y disponible de manera digital para auditorías directas en el punto de venta.
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 20px; border: 1px solid #e2e8f0;">
+                        <thead>
+                            <tr style="background-color: #0f172a; color: #ffffff;">
+                                <th style="padding: 10px 14px; text-align: left;">Métrica de Inventario</th>
+                                <th style="padding: 10px 14px; text-align: right;">Monto Valorado (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9;"><strong>Costo Total del Inventario (Valor Compra Proveedor)</strong></td>
+                                <td style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace; font-weight: 600;">${formatCurrency(dbInventario.valor_total_inventario_proveedor)}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; color: #64748b;">Valoración Total de Venta (Ingreso Esperado)</td>
+                                <td style="padding: 12px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace; color: #64748b;">${formatCurrency(dbInventario.valor_total_inventario_venta)}</td>
+                            </tr>
+                            <tr style="background-color: #f8fafc; font-weight: 700;">
+                                <td style="padding: 12px 14px;">Utilidad Bruta Potencial Estimada en Stock</td>
+                                <td style="padding: 12px 14px; text-align: right; font-family: monospace; color: #16a34a;">${formatCurrency(dbInventario.utilidad_potencial)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                tempDiv.appendChild(p2Div);
+
+                // --- PÁGINA 3: ANEXO 2 (PROVEEDORES) ---
+                const p3Div = document.createElement("div");
+                p3Div.style.boxSizing = "border-box";
+                p3Div.style.padding = "25px";
+                p3Div.style.pageBreakAfter = "always";
+                
+                let provedoresRowsHTML = "";
+                let totalDeudaGeneral = 0;
+                let totalFacturasGeneral = 0;
+                
+                rawDeudasData.forEach(item => {
+                    totalDeudaGeneral += parseFloat(item.total_deuda || 0);
+                    totalFacturasGeneral += parseInt(item.facturas_pendientes || 0, 10);
+                    
+                    provedoresRowsHTML += `
+                        <tr>
+                            <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9;">${item.proveedor_empresa || "Sin Identificar"}</td>
+                            <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; text-align: center;">${item.facturas_pendientes || 0}</td>
+                            <td style="padding: 8px 12px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">${formatCurrency(item.total_deuda)}</td>
+                        </tr>
+                    `;
+                });
+
+                p3Div.innerHTML = `
+                    <div style="border-bottom: 1.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 16px;">
+                        <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #0f172a;">ANEXO 2: DETALLE DE DEUDAS A PROVEEDORES</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b; font-weight: 500;">Auxiliar consolidado por proveedor acreedor con saldos de facturas pendientes.</p>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; border: 1px solid #e2e8f0;">
+                        <thead>
+                            <tr style="background-color: #0f172a; color: #ffffff;">
+                                <th style="padding: 10px 12px; text-align: left;">Proveedor / Razón Social</th>
+                                <th style="padding: 10px 12px; text-align: center; width: 200px;">Facturas Pendientes</th>
+                                <th style="padding: 10px 12px; text-align: right; width: 220px;">Deuda Acumulada (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${provedoresRowsHTML || '<tr><td colspan="3" style="text-align:center; padding:15px; color:#94a3b8;">No existen deudas a proveedores registradas.</td></tr>'}
+                            <tr style="background-color: #f8fafc; font-weight: 750; border-top: 2.5px solid #0f172a;">
+                                <td style="padding: 10px 12px;">TOTAL DE CUENTAS POR PAGAR (PROVEEDORES)</td>
+                                <td style="padding: 10px 12px; text-align: center;">${totalFacturasGeneral}</td>
+                                <td style="padding: 10px 12px; text-align: right; font-family: monospace; font-size: 0.9rem; color: #dc2626;">${formatCurrency(totalDeudaGeneral)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                tempDiv.appendChild(p3Div);
+
+                // --- PÁGINA 4: ANEXO 3 (MOBILIARIO) ---
+                const p4Div = document.createElement("div");
+                p4Div.style.boxSizing = "border-box";
+                p4Div.style.padding = "25px";
+                p4Div.innerHTML = `
+                    <div style="border-bottom: 1.5px solid #0f172a; padding-bottom: 8px; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #0f172a;">ANEXO 3: DETALLE DE MOBILIARIO Y EQUIPOS (ACTIVOS FIJOS)</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b; font-weight: 500;">Inventario consolidado inicial de activos tecnológicos e infraestructura operativa.</p>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; border: 1px solid #e2e8f0;">
+                        <thead>
+                            <tr style="background-color: #0f172a; color: #ffffff;">
+                                <th style="padding: 10px 14px; text-align: left;">Descripción del Activo Operativo</th>
+                                <th style="padding: 10px 14px; text-align: center; width: 200px;">Cantidad Estimada</th>
+                                <th style="padding: 10px 14px; text-align: right; width: 220px;">Valor en Libros (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Computadoras de escritorio ($800.00 c/u)</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">2</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$1,600.00</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Cajas registradoras y gavetas de dinero ($60.00 c/u)</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">2</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$120.00</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Impresoras térmicas de tickets y facturas (Puntos de venta)</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">2</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$300.00</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Cámaras de vigilancia</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">Varios</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$400.00</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Monitor para cámara de vigilancia</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">1</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$100.00</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9;">Estanterías metálicas, exhibidores y mostradores de local</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: center;">Varios</td>
+                                <td style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; text-align: right; font-family: monospace;">$1,480.00</td>
+                            </tr>
+                            <tr style="background-color: #f8fafc; font-weight: 750; border-top: 2.5px solid #0f172a;">
+                                <td style="padding: 10px 14px;">TOTAL PROPIEDADES, PLANTA Y EQUIPO</td>
+                                <td style="padding: 10px 14px; text-align: center;">-</td>
+                                <td style="padding: 10px 14px; text-align: right; font-family: monospace; font-size: 0.9rem;">$4,000.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+                tempDiv.appendChild(p4Div);
+
+                // Cargar la librería dinámicamente si no está presente
+                const html2pdfLib = await loadHtml2PdfLibrary();
+                if (!html2pdfLib) throw new Error("html2pdf no está disponible.");
+
+                // Configuración de html2pdf
+                const opt = {
+                    margin: 10,
+                    filename: 'Estado_de_Situacion_Financiera.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' }
+                };
+
+                // Generar y descargar el PDF
+                await html2pdfLib().from(tempDiv).set(opt).save();
+
+            } catch (error) {
+                console.error("Error al exportar PDF:", error);
+                alert("Hubo un error al intentar generar el PDF: " + error.message);
+            } finally {
+                pdfBtn.disabled = false;
+                pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Exportar PDF';
+            }
+        }
+
+        pdfBtn.addEventListener("click", exportToPDF);
+
+        // Carga inicial
+        fetchBalanceData();
+    }
+</script>
