@@ -2525,7 +2525,9 @@
             <div class="alert alert-warning">
                 <strong>No olvides separar el diezmo.</strong>
                 ¿Cuánto es el diezmo? El 10 % de las ventas de hoy es <strong>${formatCurrency(tithe)}</strong>.
+                <button id="cajaDiezmoAlertBtn" class="btn-primary" type="button">Ver fondo de diezmo</button>
             </div>`;
+        document.getElementById('cajaDiezmoAlertBtn')?.addEventListener('click', () => switchTab('diezmo'));
     }
 
     function formatDateOnly(dateValue) {
