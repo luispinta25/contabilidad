@@ -1795,6 +1795,59 @@
     }
 }
 
+/* ── Diezmo pendiente: bloquea el cierre, pero queda bajo transferencias ── */
+.alert-diezmo-pendiente {
+    position: fixed;
+    inset: 0;
+    z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.62);
+    backdrop-filter: blur(3px);
+}
+.diezmo-pendiente-card {
+    width: min(100%, 460px);
+    padding: 30px;
+    text-align: center;
+    color: #1f2937;
+    background: linear-gradient(145deg, #fffdf3, #ffffff);
+    border: 2px solid #f2c744;
+    border-radius: 18px;
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.3);
+}
+.diezmo-pendiente-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 15px;
+    display: grid;
+    place-items: center;
+    color: #8a6500;
+    background: #fff0ae;
+    border-radius: 50%;
+    font-size: 1.45rem;
+}
+.diezmo-pendiente-card h3 { margin: 0 0 9px; font-size: 1.25rem; }
+.diezmo-pendiente-card p { margin: 0; color: #4b5563; line-height: 1.55; }
+.diezmo-pendiente-card p strong { color: #166534; font-size: 1.12rem; }
+.diezmo-pendiente-note { margin-top: 10px !important; font-size: 0.88rem; }
+.diezmo-pendiente-btn {
+    width: 100%;
+    margin-top: 22px;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 9px;
+    color: #ffffff;
+    background: #166534;
+    box-shadow: 0 5px 12px rgba(22, 101, 52, 0.22);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+.diezmo-pendiente-btn:hover:not(:disabled) { background: #14532d; }
+.diezmo-pendiente-btn:disabled { opacity: 0.7; cursor: wait; }
+
 /* ── Alerta de transferencias pendientes (lockscreen no cerrable) ── */
 .alert-transferencias-pendientes {
     position: fixed;
@@ -2510,6 +2563,8 @@
 
         const isSaturday = state.fecha instanceof Date && state.fecha.getDay() === 6;
         if (!isSaturday || !state.resumen) {
+            container.className = 'module-alerts';
+            container.style.display = 'none';
             container.innerHTML = '';
             return;
         }
@@ -2518,15 +2573,21 @@
         const tithe = Math.round((sales * 0.10) * 100) / 100;
         const registered = hasTitheRecordForSelectedDay();
         if (registered) {
-            container.innerHTML = `<div class="alert alert-success"><strong>Diezmo registrado.</strong> Se registró ${formatCurrency(tithe)} para esta jornada.</div>`;
+            container.className = 'module-alerts';
+            container.style.display = 'none';
+            container.innerHTML = '';
             return;
         }
+        container.className = 'alert-diezmo-pendiente';
+        container.style.display = 'flex';
         container.innerHTML = `
-            <div class="alert alert-warning">
-                <strong>No olvides separar el diezmo.</strong>
-                ¿Cuánto es el diezmo? El 10 % de las ventas es <strong>${formatCurrency(tithe)}</strong>.
-                <button id="cajaDiezmoAlertBtn" class="btn-primary" type="button" ${state.diezmo.registrando ? 'disabled' : ''}>${state.diezmo.registrando ? 'Registrando...' : 'Ya separé el diezmo'}</button>
-            </div>`;
+            <section class="diezmo-pendiente-card" role="alertdialog" aria-modal="true" aria-labelledby="diezmoPendienteTitulo">
+                <div class="diezmo-pendiente-icon"><i class="fas fa-hand-holding-heart"></i></div>
+                <h3 id="diezmoPendienteTitulo">Pendiente: separar el diezmo</h3>
+                <p>El 10 % de las ventas de esta jornada es <strong>${formatCurrency(tithe)}</strong>.</p>
+                <p class="diezmo-pendiente-note">Registra la separación para continuar con el cierre de caja.</p>
+                <button id="cajaDiezmoAlertBtn" class="diezmo-pendiente-btn" type="button" ${state.diezmo.registrando ? 'disabled' : ''}>${state.diezmo.registrando ? 'Registrando...' : 'Ya separé el diezmo'}</button>
+            </section>`;
         document.getElementById('cajaDiezmoAlertBtn')?.addEventListener('click', onConfirmarDiezmo);
     }
 
