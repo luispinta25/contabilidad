@@ -1121,3 +1121,42 @@ async function crearCajaDiariaRegistro(payload) {
     if (error) throw error;
     return data;
 }
+
+// =====================================================
+// FONDO DE DIEZMO
+// =====================================================
+
+async function getMovimientosDiezmo() {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+        .from('ferre_diezmo_movimientos')
+        .select('*')
+        .order('fecha', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
+async function crearMovimientoDiezmo(payload) {
+    const supabase = getSupabaseClient();
+    const registro = {
+        fecha: payload.fecha,
+        tipo: payload.tipo,
+        origen: payload.origen,
+        monto: payload.monto,
+        observaciones: payload.observaciones || null,
+        registrado_por: payload.registrado_por || null,
+        registrado_por_email: payload.registrado_por_email || null,
+        registrado_por_nombre: payload.registrado_por_nombre || null
+    };
+
+    const { data, error } = await supabase
+        .from('ferre_diezmo_movimientos')
+        .insert(registro)
+        .select()
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
+}

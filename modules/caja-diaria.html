@@ -25,6 +25,7 @@
             </button>
         </div>
         <div id="cajaDiariaAlerts" class="module-alerts"></div>
+        <div id="cajaDiezmoAlert" class="module-alerts"></div>
         <div id="cajaPendientesAlert" style="display:none;" class="alert-transferencias-pendientes"></div>
         <div class="caja-tab-bar">
             <button class="caja-tab active" data-tab="gestion">
@@ -34,6 +35,10 @@
             <button class="caja-tab" data-tab="historico">
                 <i class="fas fa-history"></i>
                 <span>Histórico</span>
+            </button>
+            <button class="caja-tab" data-tab="diezmo">
+                <i class="fas fa-hand-holding-heart"></i>
+                <span>Fondo de diezmo</span>
             </button>
         </div>
         <p id="cajaDiariaSubtitulo" class="sr-only">Selecciona una fecha para revisar o registrar la caja diaria.</p>
@@ -367,6 +372,68 @@
                 </div>
             </section>
         </div>
+    </div>
+
+    <div class="caja-tab-panel" data-panel="diezmo">
+        <section class="diezmo-section">
+            <header class="diezmo-section-header">
+                <div>
+                    <h3><i class="fas fa-hand-holding-heart"></i> Fondo de diezmo</h3>
+                    <p>Registra los movimientos del fondo por separado de la caja diaria.</p>
+                </div>
+                <div class="diezmo-balance">
+                    <span>Saldo del fondo</span>
+                    <strong id="diezmoSaldo">$0.00</strong>
+                </div>
+            </header>
+            <form id="diezmoMovimientoForm" class="diezmo-form">
+                <div class="form-control">
+                    <label for="diezmoFecha">Fecha</label>
+                    <input id="diezmoFecha" type="date" required>
+                </div>
+                <div class="form-control">
+                    <label for="diezmoTipo">Movimiento</label>
+                    <select id="diezmoTipo" required>
+                        <option value="ingreso">Ingreso / donativo entrante</option>
+                        <option value="salida">Salida / donativo saliente</option>
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label for="diezmoOrigen">Origen</label>
+                    <select id="diezmoOrigen" required>
+                        <option value="diezmo">Diezmo</option>
+                        <option value="donativo">Donativo</option>
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label for="diezmoMonto">Monto</label>
+                    <input id="diezmoMonto" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required>
+                </div>
+                <div class="form-control diezmo-observaciones">
+                    <label for="diezmoObservaciones">Observación (opcional)</label>
+                    <input id="diezmoObservaciones" type="text" maxlength="300" placeholder="Detalle del movimiento">
+                </div>
+                <div class="form-actions diezmo-actions">
+                    <button class="btn-success" type="submit"><i class="fas fa-plus"></i> Registrar movimiento</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="diezmo-section">
+            <header class="diezmo-section-header">
+                <div>
+                    <h3><i class="fas fa-list"></i> Historial del fondo</h3>
+                    <p id="diezmoHistorialResumen">Cargando movimientos...</p>
+                </div>
+            </header>
+            <div id="diezmoLoading" class="historico-loading" style="display: none;"><i class="fas fa-spinner fa-spin"></i><span>Cargando historial...</span></div>
+            <div class="historico-table-wrapper">
+                <table class="historico-table diezmo-table">
+                    <thead><tr><th>Fecha</th><th>Movimiento</th><th>Origen</th><th>Observación</th><th>Registrado por</th><th>Monto</th></tr></thead>
+                    <tbody id="diezmoHistorialBody"></tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </div>
 
@@ -1861,6 +1928,91 @@
 .atp-reload-btn:hover {
     background: #ea580c;
 }
+.diezmo-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.diezmo-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+.diezmo-section-header h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 1.1rem;
+}
+.diezmo-section-header p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+.diezmo-balance {
+    text-align: right;
+    color: #64748b;
+    font-size: 0.82rem;
+}
+.diezmo-balance strong {
+    display: block;
+    color: #166534;
+    font-size: 1.4rem;
+    line-height: 1.25;
+}
+.diezmo-form {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+.diezmo-form select,
+.diezmo-form input {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #fff;
+    font: inherit;
+}
+.diezmo-observaciones {
+    grid-column: span 3;
+}
+.diezmo-actions {
+    margin: 0;
+}
+.diezmo-table .diezmo-monto-ingreso {
+    color: #166534;
+    font-weight: 700;
+}
+.diezmo-table .diezmo-monto-salida {
+    color: #b91c1c;
+    font-weight: 700;
+}
+.diezmo-badge {
+    display: inline-flex;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+.diezmo-badge.ingreso { background: #dcfce7; color: #166534; }
+.diezmo-badge.salida { background: #fee2e2; color: #b91c1c; }
+@media (max-width: 860px) {
+    .diezmo-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .diezmo-observaciones { grid-column: span 2; }
+}
+@media (max-width: 560px) {
+    .diezmo-section { padding: 15px; }
+    .diezmo-section-header { flex-direction: column; }
+    .diezmo-balance { text-align: left; }
+    .diezmo-form { grid-template-columns: 1fr; }
+    .diezmo-observaciones { grid-column: auto; }
+}
 </style>
 
 <script>
@@ -1886,6 +2038,10 @@
                 comparativo: null
             },
             chart: null
+        },
+        diezmo: {
+            movimientos: [],
+            cargado: false
         }
     };
     let chartJsPromise = null;
@@ -2351,6 +2507,129 @@
         container.innerHTML = `<div class="${css}">${message}</div>`;
     }
 
+    function renderSaturdayTitheAlert() {
+        const container = document.getElementById('cajaDiezmoAlert');
+        if (!container) return;
+
+        const today = normalizeDate(new Date());
+        const isSaturday = today && today.getDay() === 6;
+        const isCurrentDay = today && state.fecha && formatDateInputValue(today) === state.fechaISO;
+        if (!isSaturday || !isCurrentDay || !state.resumen) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const sales = Number(state.resumen.ventas?.total || 0);
+        const tithe = Math.round((sales * 0.10) * 100) / 100;
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <strong>No olvides separar el diezmo.</strong>
+                ¿Cuánto es el diezmo? El 10 % de las ventas de hoy es <strong>${formatCurrency(tithe)}</strong>.
+            </div>`;
+    }
+
+    function formatDateOnly(dateValue) {
+        if (!dateValue) return '-';
+        const date = new Date(`${dateValue}T12:00:00`);
+        return Number.isNaN(date.getTime()) ? String(dateValue) : date.toLocaleDateString('es-EC', {
+            year: 'numeric', month: '2-digit', day: '2-digit'
+        });
+    }
+
+    function toggleDiezmoLoading(show) {
+        const loader = document.getElementById('diezmoLoading');
+        if (loader) loader.style.display = show ? 'flex' : 'none';
+    }
+
+    function renderDiezmoMovimientos() {
+        const body = document.getElementById('diezmoHistorialBody');
+        const saldo = document.getElementById('diezmoSaldo');
+        const resumen = document.getElementById('diezmoHistorialResumen');
+        if (!body || !saldo || !resumen) return;
+
+        const movimientos = state.diezmo.movimientos || [];
+        const balance = movimientos.reduce((total, movimiento) => {
+            const monto = Number(movimiento.monto || 0);
+            return total + (movimiento.tipo === 'salida' ? -monto : monto);
+        }, 0);
+
+        saldo.textContent = formatCurrency(balance);
+        saldo.style.color = balance < 0 ? '#b91c1c' : '#166534';
+        resumen.textContent = movimientos.length
+            ? `${movimientos.length} movimiento${movimientos.length === 1 ? '' : 's'} registrado${movimientos.length === 1 ? '' : 's'}.`
+            : 'Aún no hay movimientos registrados.';
+
+        if (!movimientos.length) {
+            body.innerHTML = '<tr class="no-data"><td colspan="6">No hay movimientos en el historial.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = movimientos.map(movimiento => {
+            const isIncome = movimiento.tipo === 'ingreso';
+            const movementLabel = isIncome ? 'Ingreso' : 'Salida';
+            const amount = `${isIncome ? '+' : '-'}${formatCurrency(Math.abs(Number(movimiento.monto || 0)))}`;
+            const registeredBy = movimiento.registrado_por_nombre || movimiento.registrado_por_email || '-';
+            return `<tr>
+                <td>${formatDateOnly(movimiento.fecha)}</td>
+                <td><span class="diezmo-badge ${isIncome ? 'ingreso' : 'salida'}">${movementLabel}</span></td>
+                <td>${escapeHtml(movimiento.origen === 'donativo' ? 'Donativo' : 'Diezmo')}</td>
+                <td>${escapeHtml(movimiento.observaciones || '-')}</td>
+                <td>${escapeHtml(registeredBy)}</td>
+                <td class="${isIncome ? 'diezmo-monto-ingreso' : 'diezmo-monto-salida'}">${amount}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function loadDiezmoMovimientos() {
+        toggleDiezmoLoading(true);
+        try {
+            state.diezmo.movimientos = await getMovimientosDiezmo();
+            state.diezmo.cargado = true;
+            renderDiezmoMovimientos();
+        } catch (error) {
+            console.error('Error al cargar el fondo de diezmo:', error);
+            showCajaAlert('error', 'No se pudo cargar el historial del fondo de diezmo.');
+        } finally {
+            toggleDiezmoLoading(false);
+        }
+    }
+
+    async function onRegistrarMovimientoDiezmo(event) {
+        event.preventDefault();
+        const fecha = document.getElementById('diezmoFecha')?.value;
+        const tipo = document.getElementById('diezmoTipo')?.value;
+        const origen = document.getElementById('diezmoOrigen')?.value;
+        const monto = Number(document.getElementById('diezmoMonto')?.value || 0);
+        const observaciones = document.getElementById('diezmoObservaciones')?.value?.trim() || null;
+
+        if (!fecha || !['ingreso', 'salida'].includes(tipo) || !['diezmo', 'donativo'].includes(origen) || monto <= 0) {
+            showCajaAlert('warning', 'Completa una fecha, tipo, origen y monto válido para registrar el movimiento.');
+            return;
+        }
+
+        try {
+            await crearMovimientoDiezmo({
+                fecha,
+                tipo,
+                origen,
+                monto: Number(monto.toFixed(2)),
+                observaciones,
+                registrado_por: window.currentUser?.id || null,
+                registrado_por_email: window.currentUser?.email || null,
+                registrado_por_nombre: getUsuarioNombre()
+            });
+            const form = document.getElementById('diezmoMovimientoForm');
+            if (form) form.reset();
+            const dateInput = document.getElementById('diezmoFecha');
+            if (dateInput) dateInput.value = formatDateInputValue(new Date());
+            showCajaAlert('success', 'Movimiento del fondo de diezmo registrado correctamente.');
+            await loadDiezmoMovimientos();
+        } catch (error) {
+            console.error('Error al registrar movimiento de diezmo:', error);
+            showCajaAlert('error', error.message || 'No se pudo registrar el movimiento del fondo de diezmo.');
+        }
+    }
+
     async function checkTransferenciasPendientesHoy() {
         const container = document.getElementById('cajaPendientesAlert');
         if (!container) return;
@@ -2736,6 +3015,12 @@ _Sistema de Gestión Ferrisoluciones_`;
             } else if (state.historico.rangoInfo) {
                 renderHistorico(state.historico.rangoInfo);
             }
+        } else if (tabKey === 'diezmo') {
+            const subtitulo = document.getElementById('cajaDiariaSubtitulo');
+            if (subtitulo) {
+                subtitulo.textContent = 'Consulta el historial y registra movimientos del fondo de diezmo.';
+            }
+            loadDiezmoMovimientos();
         } else if (tabKey === 'gestion') {
             renderHeader();
         }
@@ -2772,6 +3057,7 @@ _Sistema de Gestión Ferrisoluciones_`;
             state.cajaAnterior = cajaAnterior;
 
             renderAll();
+            renderSaturdayTitheAlert();
             showCajaAlert('success', `Datos actualizados para el ${formatDate(state.fecha)}.`);
 
             // Revisar transferencias pendientes solo si se consulta el día de hoy
@@ -3460,6 +3746,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         const inputContado = document.getElementById('cajaCierreContado');
         const tabs = document.querySelectorAll('.caja-tab');
         const historicoRangeButtons = document.querySelectorAll('[data-historico-range]');
+        const diezmoForm = document.getElementById('diezmoMovimientoForm');
 
         if (daySelect) {
             daySelect.addEventListener('change', () => {
@@ -3486,6 +3773,9 @@ _Sistema de Gestión Ferrisoluciones_`;
         }
         if (inputContado) {
             inputContado.addEventListener('input', actualizarDesfasePreview);
+        }
+        if (diezmoForm) {
+            diezmoForm.addEventListener('submit', onRegistrarMovimientoDiezmo);
         }
         
         // Listeners para denominaciones
@@ -3526,6 +3816,8 @@ _Sistema de Gestión Ferrisoluciones_`;
         state.fechaISO = formatDateInputValue(hoy);
 
         syncDateSelectors(hoy);
+        const diezmoFecha = document.getElementById('diezmoFecha');
+        if (diezmoFecha) diezmoFecha.value = state.fechaISO;
         setupEventListeners();
         checkTransferenciasPendientesHoy();
         loadCajaDiariaData();
