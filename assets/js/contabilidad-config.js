@@ -1138,6 +1138,19 @@ async function getMovimientosDiezmo() {
     return Array.isArray(data) ? data : [];
 }
 
+async function getMovimientosDiezmoPorFecha(fechaISO) {
+    if (!fechaISO) return [];
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+        .from('ferre_diezmo_movimientos')
+        .select('*')
+        .eq('fecha', fechaISO)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+}
+
 async function crearMovimientoDiezmo(payload) {
     const supabase = getSupabaseClient();
     const registro = {

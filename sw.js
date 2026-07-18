@@ -8,6 +8,7 @@ const APP_SHELL = [
     "dashboard.html",
     "modules/dashboard.html",
     "modules/caja-diaria.html",
+    "modules/diezmo.html",
     "assets/css/styles.css",
     "assets/js/app-version.js",
     "assets/js/contabilidad-auth.js",
@@ -23,6 +24,7 @@ const NETWORK_FIRST_PATHS = new Set([
     "/assets/css/styles.css",
     "/modules/dashboard.html",
     "/modules/caja-diaria.html",
+    "/modules/diezmo.html",
     "/assets/js/contabilidad-config.js",
     "/assets/js/dashboard.js"
 ]);

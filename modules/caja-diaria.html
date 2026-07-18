@@ -36,10 +36,6 @@
                 <i class="fas fa-history"></i>
                 <span>Histórico</span>
             </button>
-            <button class="caja-tab" data-tab="diezmo">
-                <i class="fas fa-hand-holding-heart"></i>
-                <span>Fondo de diezmo</span>
-            </button>
         </div>
         <p id="cajaDiariaSubtitulo" class="sr-only">Selecciona una fecha para revisar o registrar la caja diaria.</p>
     </div>
@@ -2041,7 +2037,8 @@
         },
         diezmo: {
             movimientos: [],
-            cargado: false
+            cargado: false,
+            registrando: false
         }
     };
     let chartJsPromise = null;
@@ -2511,23 +2508,64 @@
         const container = document.getElementById('cajaDiezmoAlert');
         if (!container) return;
 
-        const today = normalizeDate(new Date());
-        const isSaturday = today && today.getDay() === 6;
-        const isCurrentDay = today && state.fecha && formatDateInputValue(today) === state.fechaISO;
-        if (!isSaturday || !isCurrentDay || !state.resumen) {
+        const isSaturday = state.fecha instanceof Date && state.fecha.getDay() === 6;
+        if (!isSaturday || !state.resumen) {
             container.innerHTML = '';
             return;
         }
 
         const sales = Number(state.resumen.ventas?.total || 0);
         const tithe = Math.round((sales * 0.10) * 100) / 100;
+        const registered = hasTitheRecordForSelectedDay();
+        if (registered) {
+            container.innerHTML = `<div class="alert alert-success"><strong>Diezmo registrado.</strong> Se registró ${formatCurrency(tithe)} para esta jornada.</div>`;
+            return;
+        }
         container.innerHTML = `
             <div class="alert alert-warning">
                 <strong>No olvides separar el diezmo.</strong>
-                ¿Cuánto es el diezmo? El 10 % de las ventas de hoy es <strong>${formatCurrency(tithe)}</strong>.
-                <button id="cajaDiezmoAlertBtn" class="btn-primary" type="button">Ver fondo de diezmo</button>
+                ¿Cuánto es el diezmo? El 10 % de las ventas es <strong>${formatCurrency(tithe)}</strong>.
+                <button id="cajaDiezmoAlertBtn" class="btn-primary" type="button" ${state.diezmo.registrando ? 'disabled' : ''}>${state.diezmo.registrando ? 'Registrando...' : 'Ya separé el diezmo'}</button>
             </div>`;
-        document.getElementById('cajaDiezmoAlertBtn')?.addEventListener('click', () => switchTab('diezmo'));
+        document.getElementById('cajaDiezmoAlertBtn')?.addEventListener('click', onConfirmarDiezmo);
+    }
+
+    function requiresTitheForSelectedDay() {
+        return state.fecha instanceof Date && state.fecha.getDay() === 6;
+    }
+
+    function hasTitheRecordForSelectedDay() {
+        return (state.diezmo.movimientos || []).some(movimiento =>
+            movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo'
+        );
+    }
+
+    async function onConfirmarDiezmo() {
+        if (!requiresTitheForSelectedDay() || !state.resumen || state.diezmo.registrando) return;
+        state.diezmo.registrando = true;
+        renderSaturdayTitheAlert();
+
+        const monto = Math.round(Number(state.resumen.ventas?.total || 0) * 10) / 100;
+        try {
+            await crearMovimientoDiezmo({
+                fecha: state.fechaISO,
+                tipo: 'ingreso',
+                origen: 'diezmo',
+                monto,
+                observaciones: 'Registro automático desde Caja Diaria',
+                registrado_por: window.currentUser?.id || null,
+                registrado_por_email: window.currentUser?.email || null,
+                registrado_por_nombre: getUsuarioNombre()
+            });
+            state.diezmo.movimientos = await getMovimientosDiezmoPorFecha(state.fechaISO);
+            showCajaAlert('success', 'Diezmo registrado correctamente. Ya puedes guardar la caja diaria.');
+        } catch (error) {
+            console.error('Error al registrar el diezmo:', error);
+            showCajaAlert('error', error.message || 'No se pudo registrar el diezmo.');
+        } finally {
+            state.diezmo.registrando = false;
+            renderSaturdayTitheAlert();
+        }
     }
 
     function formatDateOnly(dateValue) {
@@ -3046,17 +3084,20 @@ _Sistema de Gestión Ferrisoluciones_`;
         showCajaAlert('info', `Calculando movimientos para el ${formatDate(targetDate)}...`);
 
         try {
-            const [resumen, cajaInicial, cajaDiaria, cajaAnterior] = await Promise.all([
+            const [resumen, cajaInicial, cajaDiaria, cajaAnterior, diezmoMovimientos] = await Promise.all([
                 calcularResumenDiario(targetDate),
                 getCajaInicialPorFecha(state.fechaISO),
                 getCajaDiariaPorFecha(state.fechaISO),
-                existeCajaDiariaAnterior(state.fechaISO)
+                existeCajaDiariaAnterior(state.fechaISO),
+                targetDate.getDay() === 6 ? getMovimientosDiezmoPorFecha(state.fechaISO) : Promise.resolve([])
             ]);
 
             state.resumen = resumen;
             state.cajaInicial = cajaInicial;
             state.cajaDiaria = cajaDiaria;
             state.cajaAnterior = cajaAnterior;
+            state.diezmo.movimientos = diezmoMovimientos;
+            state.diezmo.cargado = targetDate.getDay() === 6;
 
             renderAll();
             renderSaturdayTitheAlert();
@@ -3658,6 +3699,12 @@ _Sistema de Gestión Ferrisoluciones_`;
     async function onRegistrarCajaDiaria() {
         if (state.cajaDiaria) {
             showCajaAlert('warning', 'Ya existe un registro de caja diaria para esta fecha.');
+            return;
+        }
+
+        if (requiresTitheForSelectedDay() && !hasTitheRecordForSelectedDay()) {
+            showCajaAlert('warning', 'Antes de guardar la caja diaria debes registrar el diezmo desde la alerta superior.');
+            renderSaturdayTitheAlert();
             return;
         }
 

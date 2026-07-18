@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contabilidad - Ferrisoluciones</title>
-    <link rel="stylesheet" href="assets/css/styles.css?v=2.7.0">
+    <link rel="stylesheet" href="assets/css/styles.css?v=2.8.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="assets/js/app-version.js?v=2.7.0"></script>
+    <script src="assets/js/app-version.js?v=2.8.0"></script>
 </head>
 <body>
     <!-- Login Container -->
@@ -16,7 +16,7 @@
                 <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="login-logo">
                 <h2>Contabilidad Ferrisoluciones</h2>
                 <p>Sistema de Gestión Financiera</p>
-                <span id="loginVersionBadge" class="app-version-badge login-version-badge">v2.7.0</span>
+                <span id="loginVersionBadge" class="app-version-badge login-version-badge">v2.8.0</span>
             </div>
             <form id="contabilidadLoginForm" class="login-form">
                 <div class="form-group">
@@ -47,7 +47,7 @@
                 <img src="https://lh3.googleusercontent.com/d/1v__yUHMoORHQnZuCvoaBbBKuqXzfCNzz=w2048" alt="Ferrisoluciones" class="app-logo">
                 <div class="app-title-group">
                     <h1>Contabilidad Ferrisoluciones</h1>
-                    <span id="appVersionBadge" class="app-version-badge">v2.7.0</span>
+                    <span id="appVersionBadge" class="app-version-badge">v2.8.0</span>
                 </div>
             </div>
             <nav class="main-nav" aria-label="Navegación principal">
@@ -58,6 +58,10 @@
                 <button class="nav-item" data-module="caja-diaria" title="Caja Diaria">
                     <i class="fas fa-cash-register"></i>
                     <span>Caja Diaria</span>
+                </button>
+                <button class="nav-item" data-module="diezmo" title="Fondo de diezmo">
+                    <i class="fas fa-hand-holding-heart"></i>
+                    <span>Fondo de diezmo</span>
                 </button>
                 <button class="nav-item" data-module="reportes" title="Reportes">
                     <i class="fas fa-file-alt"></i>
@@ -99,7 +103,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/js/contabilidad-supabase.js"></script>
     <script src="assets/js/contabilidad-auth.js"></script>
-    <script src="assets/js/contabilidad-config.js?v=2.7.0"></script>
+    <script src="assets/js/contabilidad-config.js?v=2.8.0"></script>
     <script>
         // Sobrescribir funciones de auth.js para este módulo
         function showLogin() {
@@ -138,7 +142,7 @@
         });
 
         function initAppVersion() {
-            const version = window.CONTABILIDAD_APP?.version || '2.7.0';
+            const version = window.CONTABILIDAD_APP?.version || '2.8.0';
             const badges = [
                 document.getElementById('appVersionBadge'),
                 document.getElementById('loginVersionBadge')
@@ -300,12 +304,14 @@
             if (moduleName === 'dashboard') {
                 // Cargar dashboard como iframe para mantener independencia
                 container.innerHTML = `
-                        <iframe src="modules/dashboard.html?v=2.7.0"
+                        <iframe src="modules/dashboard.html?v=2.8.0"
                             style="width: 100%; height: 100%; border: none; display: block;"
                             title="Dashboard Financiero"></iframe>
                 `;
             } else if (moduleName === 'caja-diaria') {
                 await loadCajaDiariaModule(container);
+            } else if (moduleName === 'diezmo') {
+                await loadDiezmoModule(container);
             } else if (moduleName === 'reportes') {
                 await loadReportesModule(container);
             } else {
@@ -331,7 +337,7 @@
                     </div>
                 `;
 
-                const response = await fetch('modules/caja-diaria.html?v=2.7.0');
+                const response = await fetch('modules/caja-diaria.html?v=2.8.0');
                 if (!response.ok) throw new Error('No se pudo cargar el módulo modules/caja-diaria.html');
 
                 const html = await response.text();
@@ -378,7 +384,7 @@
                     </div>
                 `;
 
-                const response = await fetch('modules/reportes.html?v=2.7.0');
+                const response = await fetch('modules/reportes.html?v=2.8.0');
                 if (!response.ok) throw new Error('No se pudo cargar el módulo modules/reportes.html');
 
                 const html = await response.text();
@@ -413,6 +419,31 @@
                         <p>${error.message}</p>
                     </div>
                 `;
+            }
+        }
+
+        async function loadDiezmoModule(container) {
+            try {
+                container.innerHTML = `<div class="loading-message"><i class="fas fa-spinner fa-spin"></i><p>Cargando Fondo de diezmo...</p></div>`;
+                const response = await fetch('modules/diezmo.html?v=2.8.0');
+                if (!response.ok) throw new Error('No se pudo cargar el módulo modules/diezmo.html');
+
+                const temp = document.createElement('div');
+                temp.innerHTML = await response.text();
+                const scripts = temp.querySelectorAll('script');
+                const scriptContents = [];
+                scripts.forEach(script => { scriptContents.push(script.textContent); script.remove(); });
+                container.innerHTML = temp.innerHTML;
+                scriptContents.forEach(content => {
+                    const scriptEl = document.createElement('script');
+                    scriptEl.textContent = content;
+                    document.body.appendChild(scriptEl);
+                    document.body.removeChild(scriptEl);
+                });
+                if (typeof initDiezmo === 'function') initDiezmo();
+            } catch (error) {
+                console.error('Error al cargar Fondo de diezmo:', error);
+                container.innerHTML = `<div class="module-placeholder"><i class="fas fa-exclamation-triangle fa-3x"></i><h2>Error al cargar Fondo de diezmo</h2><p>${error.message}</p></div>`;
             }
         }
     </script>
