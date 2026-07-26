@@ -536,6 +536,32 @@ async function getTransferenciasHoy(targetDate = new Date()) {
     }
 }
 
+/**
+ * Obtiene las devoluciones registradas durante la jornada.
+ * Por ahora se asume que una devolución con dinero entregado se paga en efectivo.
+ */
+async function getDevolucionesHoy(targetDate = new Date()) {
+    const client = getSupabaseClient();
+    const startOfDay = getStartOfDay(targetDate);
+    const endOfDay = getEndOfDay(targetDate);
+
+    try {
+        const { data, error } = await client
+            .from('ferre_devoluciones')
+            .select('*')
+            .gte('created_at', startOfDay)
+            .lte('created_at', endOfDay)
+            .eq('estado', 'COMPLETADO')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error al obtener devoluciones:', error);
+        return [];
+    }
+}
+
 function getCodigoMovimiento(movimiento) {
     const candidatos = [
         movimiento?.id_venta,
@@ -553,6 +579,41 @@ function getCodigoMovimiento(movimiento) {
     }
 
     return '';
+}
+
+function esPagoPorTransferencia(metodo) {
+    return ['TRANSFERENCIA', 'DEPOSITO', 'DEPÓSITO', 'TARJETA', 'CHEQUE'].includes(
+        String(metodo || '').trim().toUpperCase()
+    );
+}
+
+function getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds) {
+    const tipo = String(devolucion?.tipo || 'DEVOLUCION').toUpperCase();
+    const totalDevuelto = parseFloat(devolucion?.total_devuelto || 0);
+    const diferencia = parseFloat(devolucion?.diferencia || 0);
+    const esVentaAnuladaHoy = ventasDevueltasHoyIds.has(devolucion?.venta_id);
+
+    if (esVentaAnuladaHoy) {
+        return { ...devolucion, efectoCaja: 'sin-efecto', montoCaja: 0, detalleCaja: 'Venta anulada el mismo día' };
+    }
+
+    if (tipo === 'CAMBIO') {
+        if (diferencia < -0.009) {
+            return { ...devolucion, efectoCaja: 'salida', montoCaja: Math.abs(diferencia), detalleCaja: 'Vuelto entregado al cliente' };
+        }
+        if (diferencia > 0.009) {
+            const esTransferencia = esPagoPorTransferencia(devolucion?.tipo_pago_diferencia);
+            return {
+                ...devolucion,
+                efectoCaja: esTransferencia ? 'ingreso-virtual' : 'ingreso',
+                montoCaja: diferencia,
+                detalleCaja: esTransferencia ? 'Diferencia cobrada por transferencia' : 'Diferencia cobrada en efectivo'
+            };
+        }
+        return { ...devolucion, efectoCaja: 'sin-efecto', montoCaja: 0, detalleCaja: 'Cambio sin diferencia de dinero' };
+    }
+
+    return { ...devolucion, efectoCaja: 'salida', montoCaja: totalDevuelto, detalleCaja: 'Devolución entregada al cliente' };
 }
 
 function codigoEmpiezaCon(movimiento, prefijo) {
@@ -644,6 +705,10 @@ async function calcularResumenDiario(fecha = new Date()) {
         const transferencias = await getTransferenciasHoy(targetDate);
         const saldoActual = await getSaldoActual();
         const cajaInicial = await getCajaInicialPorFecha(fechaISO);
+        const devoluciones = await getDevolucionesHoy(targetDate);
+        const movimientosDiezmo = targetDate.getDay() === 6
+            ? await getMovimientosDiezmoPorFecha(fechaISO)
+            : [];
 
         console.log('📊 Datos obtenidos:', {
             ventas: ventas.length,
@@ -652,6 +717,8 @@ async function calcularResumenDiario(fecha = new Date()) {
             pagosProveedores: pagosProveedores.length,
             gastos: gastos.length,
             transferencias: transferencias.todas?.length || 0,
+            devoluciones: devoluciones.length,
+            diezmos: movimientosDiezmo.length,
             fecha: fechaISO
         });
 
@@ -671,24 +738,40 @@ async function calcularResumenDiario(fecha = new Date()) {
         const ventasCredito = ventasActivas.filter(v => ventasIdCredito.includes(v.id));
         const ventasNoCredito = ventasActivas.filter(v => !ventasIdCredito.includes(v.id));
 
-        // De las no crédito, separar Efectivo vs Transferencia
-        // Consideramos MIXTO como efectivo para el cuadre físico, 
-        // ya que la parte transferencia se registra por separado en ferre_transferencias
-        const ventasEfectivo = ventasNoCredito.filter(v => 
-            (v.tipo_pago || '').toUpperCase() === 'EFECTIVO' || 
-            (v.tipo_pago || '').toUpperCase() === 'MIXTO' || 
-            !(v.tipo_pago)
-        );
-        const ventasTransferencia = ventasNoCredito.filter(v => 
-            (v.tipo_pago || '').toUpperCase() === 'TRANSFERENCIA'
-        );
+        // Para ventas mixtas, la transferencia se vincula por id_venta y el
+        // remanente de la venta es el único valor que entra a caja física.
+        const transferenciasIngresoPorVenta = new Map();
+        transferencias.ingresos.forEach(transferencia => {
+            const codigoVenta = transferencia.id_venta;
+            if (!codigoVenta) return;
+            const montoAcumulado = transferenciasIngresoPorVenta.get(codigoVenta) || 0;
+            transferenciasIngresoPorVenta.set(codigoVenta, montoAcumulado + parseFloat(transferencia.monto || 0));
+        });
+        const ventasEfectivo = ventasNoCredito.filter(v => {
+            const tipoPago = (v.tipo_pago || '').toUpperCase();
+            return tipoPago === 'EFECTIVO' || !tipoPago;
+        });
+        const ventasMixtas = ventasNoCredito.filter(v => (v.tipo_pago || '').toUpperCase() === 'MIXTO');
+        const ventasTransferencia = ventasNoCredito.filter(v => (v.tipo_pago || '').toUpperCase() === 'TRANSFERENCIA');
 
         // Las ventas DEVUELTO ya están excluidas de ventasActivas, por lo que su efecto
         // neto en los totales es cero (no se suman ni se restan por separado).
         // ventasDevueltas se guarda solo para informar en el resumen.
         const totalVentasCredito = ventasCredito.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
-        const totalVentasEfectivo = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
-        const totalVentasTransferencia = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const totalVentasEfectivoDirecto = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const totalVentasTransferenciaDirecta = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const resumenVentasMixtas = ventasMixtas.reduce((sum, venta) => {
+            const totalVenta = parseFloat(venta.total || 0);
+            const montoTransferencia = Math.min(
+                Math.max(transferenciasIngresoPorVenta.get(venta.id_venta) || 0, 0),
+                totalVenta
+            );
+            sum.efectivo += totalVenta - montoTransferencia;
+            sum.transferencia += montoTransferencia;
+            return sum;
+        }, { efectivo: 0, transferencia: 0 });
+        const totalVentasEfectivo = totalVentasEfectivoDirecto + resumenVentasMixtas.efectivo;
+        const totalVentasTransferencia = totalVentasTransferenciaDirecta + resumenVentasMixtas.transferencia;
         const totalVentas = totalVentasEfectivo + totalVentasTransferencia + totalVentasCredito;
 
         // Calcular ingresos
@@ -716,6 +799,26 @@ async function calcularResumenDiario(fecha = new Date()) {
         const transferenciasGastos = transferencias.egresos.filter(t => codigoEmpiezaCon(t, 'G'));
         const totalGastosTransferencia = transferenciasGastos.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
         const gastosEfectivo = Math.max(totalGastos - totalGastosTransferencia, 0);
+
+        // Una venta anulada el mismo día ya está excluida de ventasActivas.
+        // No se descuenta de nuevo su devolución: el efecto neto de caja es cero.
+        const ventasDevueltasHoyIds = new Set(ventasDevueltas.map(venta => venta.id));
+        const movimientosDevoluciones = devoluciones.map(devolucion => getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds));
+        const devolucionesEfectivo = movimientosDevoluciones
+            .filter(movimiento => movimiento.efectoCaja === 'salida')
+            .reduce((sum, movimiento) => sum + movimiento.montoCaja, 0);
+        const cambiosEfectivo = movimientosDevoluciones
+            .filter(movimiento => movimiento.efectoCaja === 'ingreso')
+            .reduce((sum, movimiento) => sum + movimiento.montoCaja, 0);
+        const cambiosIngresosTotal = movimientosDevoluciones
+            .filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja))
+            .reduce((sum, movimiento) => sum + movimiento.montoCaja, 0);
+
+        // Un ingreso con origen "diezmo" representa efectivo que se aparta de
+        // la caja del negocio. Las salidas del fondo no se descuentan otra vez.
+        const diezmoEfectivo = movimientosDiezmo
+            .filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo')
+            .reduce((sum, movimiento) => sum + parseFloat(movimiento.monto || 0), 0);
 
         // Filtrar transferencias manuales (que no son de ventas ni de proveedores)
         const transferenciasIngresoManuales = transferencias.ingresos.filter(t =>
@@ -746,23 +849,25 @@ async function calcularResumenDiario(fecha = new Date()) {
         
         // Ingresos Totales = Ventas pagadas + CxC anotadas del día + Pagos CxC + Otros
         // No sumamos transferencias porque ya están incluidas en las ventas o pagos CxC
-        const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalCreditosOtorgados + totalPagosCxC + otrosIngresos;
-        const totalIngresosMovimientos = ventasEfectivo.length + ventasTransferencia.length + creditos.length + pagos.length;
+        const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalCreditosOtorgados + totalPagosCxC + cambiosIngresosTotal + otrosIngresos;
+        const totalIngresosMovimientos = ventasEfectivo.length + ventasMixtas.length + ventasTransferencia.length + creditos.length + pagos.length + movimientosDevoluciones.filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja)).length;
 
-        // Egresos Totales = Pagos a Proveedores + Gastos
+        // Egresos Totales = Pagos a Proveedores + Gastos + Devoluciones + Diezmo apartado.
         // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
-        const totalEgresosGlobal = totalPagosProveedores + totalGastos;
-        const totalEgresosMovimientos = pagosProveedores.length + gastos.length;
+        const totalEgresosGlobal = totalPagosProveedores + totalGastos + devolucionesEfectivo + diezmoEfectivo;
+        const totalEgresosMovimientos = pagosProveedores.length + gastos.length + devoluciones.filter(devolucion => devolucion.tipo === 'DEVOLUCION').length + movimientosDiezmo.filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo').length;
 
         const cajaFisicaIngresos = {
             ventas: totalVentasEfectivo,
             pagosCxC: pagosCxCEfectivo,
-            otros: 0,
+            otros: cambiosEfectivo,
             cambiosDinero: cambiosDineroEgresoBanco
         };
         const cajaFisicaEgresos = {
             proveedores: pagosProveedoresEfectivo,
             gastos: gastosEfectivo,
+            devoluciones: devolucionesEfectivo,
+            diezmo: diezmoEfectivo,
             // Si das efectivo a cambio de una transferencia, es una salida de efectivo (egreso físico).
             // Los cambios CXXXX se separan para que el efecto sea claro:
             // ingreso bancario CXXXX resta caja física; egreso bancario CXXXX suma caja física.
@@ -770,7 +875,7 @@ async function calcularResumenDiario(fecha = new Date()) {
             cambiosDinero: cambiosDineroIngresoBanco
         };
         const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros + cajaFisicaIngresos.cambiosDinero
-            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
+            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.devoluciones - cajaFisicaEgresos.diezmo - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
 
         const cajaVirtualIngresos = {
             // transferencias.totalIngresos ya incluye las ventas por transferencia y posiblemente pagos CxC si se registran ahí
@@ -826,7 +931,8 @@ async function calcularResumenDiario(fecha = new Date()) {
                 creditosOtorgados: totalCreditosOtorgados,
                 pagosCxC: totalPagosCxC,
                 transferencias: 0, // Ya no sumamos transferencias a los ingresos
-                otros: otrosIngresos,
+                otros: otrosIngresos + cambiosIngresosTotal,
+                cambios: cambiosIngresosTotal,
                 cantidad: totalIngresosMovimientos,
                 listaPagos: pagos,
                 detallePagosCxC: {
@@ -851,10 +957,13 @@ async function calcularResumenDiario(fecha = new Date()) {
                 gastos: totalGastos,
                 gastosEfectivo,
                 gastosTransferencia: totalGastosTransferencia,
+                devoluciones: devolucionesEfectivo,
+                diezmo: diezmoEfectivo,
                 transferencias: 0, // Ya no sumamos transferencias a los egresos
                 cantidad: totalEgresosMovimientos,
                 listaProveedores: pagosProveedores,
-                listaGastos: gastos
+                listaGastos: gastos,
+                listaDevoluciones: movimientosDevoluciones
             },
             transferencias: {
                 ingresos: transferencias.ingresos,

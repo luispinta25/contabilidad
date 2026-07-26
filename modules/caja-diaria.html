@@ -73,12 +73,12 @@
             <div class="stat-card">
                 <span class="stat-label">Ingresos</span>
                 <span class="stat-value" id="statIngresosTotales">$0.00</span>
-                <span class="stat-note">CxC anotadas: <span id="statCreditosOtorgados">$0.00</span> · Pagos CxC: <span id="statPagosCxC">$0.00</span></span>
+                <span class="stat-note">CxC anotadas: <span id="statCreditosOtorgados">$0.00</span> · Pagos CxC: <span id="statPagosCxC">$0.00</span> · Cambios: <span id="statCambios">$0.00</span></span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Egresos</span>
                 <span class="stat-value" id="statEgresosTotales">$0.00</span>
-                <span class="stat-note">Gastos: <span id="statGastos">$0.00</span> · Efec.: <span id="statGastosEfectivo">$0.00</span></span>
+                <span class="stat-note">Gastos: <span id="statGastos">$0.00</span> · Devoluciones: <span id="statDevoluciones">$0.00</span> · Diezmo: <span id="statDiezmo">$0.00</span></span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Transferencias</span>
@@ -138,6 +138,17 @@
                     </div>
                 </div>
                 <div class="cambios-dinero-list" id="cambiosDineroLista"></div>
+            </div>
+
+            <div class="devoluciones-caja-panel" id="devolucionesCajaPanel" style="display: none;">
+                <div class="devoluciones-caja-header">
+                    <div>
+                        <span class="resume-label">Devoluciones y cambios</span>
+                        <span class="devoluciones-caja-subtitle" id="devolucionesCajaCantidad">0 movimientos</span>
+                    </div>
+                    <span class="resume-value" id="devolucionesCajaNeto">$0.00</span>
+                </div>
+                <div class="devoluciones-caja-list" id="devolucionesCajaLista"></div>
             </div>
 
             <!-- Desglose por Denominaciones -->
@@ -976,6 +987,56 @@
 .cambios-dinero-badge.negative {
     background: #dc2626;
 }
+.devoluciones-caja-panel {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fffaf5;
+    padding: 14px;
+    margin-bottom: 18px;
+}
+.devoluciones-caja-header,
+.devoluciones-caja-item {
+    display: grid;
+    gap: 10px;
+    align-items: center;
+}
+.devoluciones-caja-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: 12px;
+}
+.devoluciones-caja-subtitle {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+.devoluciones-caja-list {
+    display: grid;
+    gap: 8px;
+}
+.devoluciones-caja-item {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    background: #ffffff;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 9px 11px;
+}
+.devoluciones-caja-badge {
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+.devoluciones-caja-badge.negative { background: #fee2e2; color: #b91c1c; }
+.devoluciones-caja-badge.positive { background: #dcfce7; color: #047857; }
+.devoluciones-caja-badge.neutral { background: #e2e8f0; color: #475569; }
+.devoluciones-caja-detail { min-width: 0; }
+.devoluciones-caja-detail strong { display: block; color: #334155; font-size: 0.86rem; }
+.devoluciones-caja-detail span { color: #64748b; font-size: 0.78rem; }
+.devoluciones-caja-value { font-weight: 700; white-space: nowrap; }
+.devoluciones-caja-value.negative { color: #b91c1c; }
+.devoluciones-caja-value.positive { color: #047857; }
+.devoluciones-caja-value.neutral { color: #475569; }
 .cambios-dinero-code {
     display: block;
     color: #111827;
@@ -2261,6 +2322,57 @@
         }).join('');
     }
 
+    function renderDevolucionesCaja(resumen) {
+        const panel = document.getElementById('devolucionesCajaPanel');
+        const lista = document.getElementById('devolucionesCajaLista');
+        if (!panel || !lista) return;
+
+        const movimientos = resumen?.egresos?.listaDevoluciones || [];
+        if (!movimientos.length) {
+            panel.style.display = 'none';
+            lista.innerHTML = '';
+            updateText('devolucionesCajaCantidad', '0 movimientos');
+            updateText('devolucionesCajaNeto', formatCurrency(0));
+            return;
+        }
+
+        const netoFisico = movimientos.reduce((total, movimiento) => {
+            if (movimiento.efectoCaja === 'salida') return total - parseMonto(movimiento.montoCaja);
+            if (movimiento.efectoCaja === 'ingreso') return total + parseMonto(movimiento.montoCaja);
+            return total;
+        }, 0);
+
+        panel.style.display = 'block';
+        updateText('devolucionesCajaCantidad', `${movimientos.length} movimiento${movimientos.length !== 1 ? 's' : ''}`);
+        updateText('devolucionesCajaNeto', formatCurrency(netoFisico));
+
+        lista.innerHTML = movimientos.map(movimiento => {
+            const esSalida = movimiento.efectoCaja === 'salida';
+            const esIngreso = movimiento.efectoCaja === 'ingreso';
+            const esVirtual = movimiento.efectoCaja === 'ingreso-virtual';
+            const clase = esSalida ? 'negative' : esIngreso ? 'positive' : 'neutral';
+            const etiqueta = esSalida ? 'Sale efectivo' : esIngreso ? 'Entra efectivo' : esVirtual ? 'Transferencia' : 'Sin efectivo';
+            const icono = String(movimiento.tipo || '').toUpperCase() === 'CAMBIO' ? 'fa-exchange-alt' : 'fa-undo-alt';
+            const fecha = movimiento.created_at ? formatDateTime(movimiento.created_at) : '-';
+            const monto = esSalida || esIngreso
+                ? `${esSalida ? '-' : '+'}${formatCurrency(parseMonto(movimiento.montoCaja))}`
+                : esVirtual
+                    ? `+${formatCurrency(parseMonto(movimiento.montoCaja))}`
+                    : formatCurrency(0);
+            const codigoVenta = escapeHtml(movimiento.id_venta || '-');
+
+            return `
+                <div class="devoluciones-caja-item ${clase}">
+                    <span class="devoluciones-caja-badge ${clase}"><i class="fas ${icono}"></i> ${escapeHtml(movimiento.tipo || 'DEVOLUCION')}</span>
+                    <span class="devoluciones-caja-detail">
+                        <strong>${codigoVenta}</strong>
+                        <span>${escapeHtml(movimiento.detalleCaja || '')} · ${escapeHtml(fecha)}</span>
+                    </span>
+                    <span class="devoluciones-caja-value ${clase}">${monto}</span>
+                </div>`;
+        }).join('');
+    }
+
     function buildSemanaActualRange(baseDate = new Date()) {
         const today = normalizeDate(baseDate) || normalizeDate(new Date());
         const day = today.getDay();
@@ -2619,6 +2731,7 @@
                 registrado_por_nombre: getUsuarioNombre()
             });
             state.diezmo.movimientos = await getMovimientosDiezmoPorFecha(state.fechaISO);
+            await loadCajaDiariaData();
             showCajaAlert('success', 'Diezmo registrado correctamente. Ya puedes guardar la caja diaria.');
         } catch (error) {
             console.error('Error al registrar el diezmo:', error);
@@ -3295,9 +3408,12 @@ _Sistema de Gestión Ferrisoluciones_`;
             updateText('statIngresosTotales', formatCurrency(0));
             updateText('statCreditosOtorgados', formatCurrency(0));
             updateText('statPagosCxC', formatCurrency(0));
+            updateText('statCambios', formatCurrency(0));
             updateText('statEgresosTotales', formatCurrency(0));
             updateText('statGastos', formatCurrency(0));
             updateText('statGastosEfectivo', formatCurrency(0));
+            updateText('statDevoluciones', formatCurrency(0));
+            updateText('statDiezmo', formatCurrency(0));
             updateText('statTransferNeto', formatCurrency(0));
             updateText('statTransferIngresos', formatCurrency(0));
             updateText('statTransferEgresos', formatCurrency(0));
@@ -3320,9 +3436,12 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('statIngresosTotales', formatCurrency(resumen.ingresos.total));
         updateText('statCreditosOtorgados', formatCurrency(resumen.ingresos.creditosOtorgados || 0));
         updateText('statPagosCxC', formatCurrency(resumen.ingresos.pagosCxC));
+        updateText('statCambios', formatCurrency(resumen.ingresos.cambios || 0));
         updateText('statEgresosTotales', formatCurrency(resumen.egresos.total));
         updateText('statGastos', formatCurrency(resumen.egresos.gastos));
         updateText('statGastosEfectivo', formatCurrency(resumen.egresos.gastosEfectivo ?? resumen.egresos.gastos));
+        updateText('statDevoluciones', formatCurrency(resumen.egresos.devoluciones || 0));
+        updateText('statDiezmo', formatCurrency(resumen.egresos.diezmo || 0));
         updateText('statTransferNeto', formatCurrency(resumen.transferencias.neto));
         updateText('statTransferIngresos', formatCurrency(resumen.transferencias.totalIngresos));
         updateText('statTransferEgresos', formatCurrency(resumen.transferencias.totalEgresos));
@@ -3406,6 +3525,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('cajaVirtualValor', formatCurrency(netoVirtual));
         updateText('cajaSaldoBancoValor', formatCurrency(saldoBanco));
         renderCambiosDinero(resumen);
+        renderDevolucionesCaja(resumen);
 
         const inputContado = document.getElementById('cajaCierreContado');
         const notas = document.getElementById('cajaCierreNotas');
