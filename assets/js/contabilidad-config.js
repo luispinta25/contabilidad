@@ -787,8 +787,22 @@ async function calcularResumenDiario(fecha = new Date()) {
         const pagosCxCOtros = 0;
 
         const totalPagosProveedores = pagosProveedores.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
+        // El ingreso de facturas de proveedor guarda los pagos inmediatos como
+        // "CONTADO - EFECTIVO". También aceptamos el formato anterior "EFECTIVO".
+        // Ambos son dinero que salió físicamente de caja.
+        const esPagoProveedorEnEfectivo = pago => {
+            const metodo = (pago.metodo_pago || '').toUpperCase();
+            return metodo === 'EFECTIVO' || (metodo.includes('CONTADO') && metodo.includes('EFECTIVO'));
+        };
+        const esPagoFacturaContadoEfectivo = pago => {
+            const metodo = (pago.metodo_pago || '').toUpperCase();
+            return metodo.includes('CONTADO') && metodo.includes('EFECTIVO');
+        };
         const pagosProveedoresEfectivo = pagosProveedores
-            .filter(p => (p.metodo_pago || '').toUpperCase() === 'EFECTIVO')
+            .filter(esPagoProveedorEnEfectivo)
+            .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
+        const pagosFacturasContadoEfectivo = pagosProveedores
+            .filter(esPagoFacturaContadoEfectivo)
             .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         const pagosProveedoresTransferencia = pagosProveedores
             .filter(p => (p.metodo_pago || '').toUpperCase() === 'TRANSFERENCIA')
@@ -951,6 +965,7 @@ async function calcularResumenDiario(fecha = new Date()) {
                 proveedores: totalPagosProveedores,
                 proveedoresDetalle: {
                     efectivo: pagosProveedoresEfectivo,
+                    facturasContadoEfectivo: pagosFacturasContadoEfectivo,
                     transferencia: pagosProveedoresTransferencia,
                     otros: pagosProveedoresOtros
                 },
