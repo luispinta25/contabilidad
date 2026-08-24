@@ -12,8 +12,10 @@
 
     <section class="balances-filters" aria-label="Período del balance">
         <button class="balances-range active" data-range="mes">Este mes</button>
-        <button class="balances-range" data-range="hoy">Hoy</button>
-        <button class="balances-range" data-range="semana">Esta semana</button>
+        <button class="balances-range" data-range="mes-anterior">Mes pasado</button>
+        <button class="balances-range" data-range="mes-dos-anterior">Hace 2 meses</button>
+        <button class="balances-range" data-range="trimestre">Último trimestre</button>
+        <button class="balances-range" data-range="semestre">Último semestre</button>
         <button class="balances-range" data-range="anio">Este año</button>
         <label class="balances-custom-date">Desde <input type="date" id="balancesDesde"></label>
         <label class="balances-custom-date">Hasta <input type="date" id="balancesHasta"></label>
@@ -80,8 +82,10 @@
 
     function getRange(key){
         const now = new Date(); let start, end=endDay(now);
-        if(key==='hoy') start=startDay(now);
-        else if(key==='semana'){ start=startDay(now); start.setDate(start.getDate()-(start.getDay()+6)%7); }
+        if(key==='mes-anterior') { start=new Date(now.getFullYear(),now.getMonth()-1,1); end=endDay(new Date(now.getFullYear(),now.getMonth(),0)); }
+        else if(key==='mes-dos-anterior') { start=new Date(now.getFullYear(),now.getMonth()-2,1); end=endDay(new Date(now.getFullYear(),now.getMonth()-1,0)); }
+        else if(key==='trimestre') start=new Date(now.getFullYear(),now.getMonth()-2,1);
+        else if(key==='semestre') start=new Date(now.getFullYear(),now.getMonth()-5,1);
         else if(key==='anio') start=new Date(now.getFullYear(),0,1);
         else if(key==='custom'){
             const from=$('balancesDesde').value, to=$('balancesHasta').value;
@@ -91,7 +95,23 @@
         return { start:startDay(start), end, label:`${formatDate(dateISO(start))} — ${formatDate(dateISO(end))}` };
     }
 
-    function previousRange(range){
+    function moveMonths(date, amount){
+        const result=new Date(date);
+        const day=result.getDate();
+        result.setDate(1);
+        result.setMonth(result.getMonth()+amount);
+        const lastDay=new Date(result.getFullYear(),result.getMonth()+1,0).getDate();
+        result.setDate(Math.min(day,lastDay));
+        return result;
+    }
+
+    function previousRange(range, key){
+        const calendarMonths={mes:1,'mes-anterior':1,'mes-dos-anterior':1,trimestre:3,semestre:6,anio:12}[key];
+        if(calendarMonths){
+            const start=moveMonths(range.start,-calendarMonths);
+            const end=moveMonths(range.end,-calendarMonths);
+            return {start,end,label:`${formatDate(dateISO(start))} — ${formatDate(dateISO(end))}`};
+        }
         const days=Math.round((startDay(range.end)-startDay(range.start))/86400000)+1;
         const end=new Date(range.start); end.setDate(end.getDate()-1); end.setHours(23,59,59,999);
         const start=new Date(end); start.setDate(start.getDate()-days+1); start.setHours(0,0,0,0);
@@ -162,7 +182,7 @@
     function showAlert(message){ $('balancesAlert').innerHTML=message?`<div class="alert alert-danger" style="margin-bottom:14px;">${message}</div>`:''; }
     async function load(){
         try{ currentRange=getRange(rangeKey); $('balancesLoading').style.display='block'; $('balancesContent').style.display='none'; $('balancesRefreshBtn').disabled=true; showAlert('');
-            const [current,previous]=await Promise.all([calculatePeriod(currentRange),calculatePeriod(previousRange(currentRange))]);
+            const [current,previous]=await Promise.all([calculatePeriod(currentRange),calculatePeriod(previousRange(currentRange,rangeKey))]);
             render(current,previous); $('balancesPeriodoTexto').textContent=`Período: ${currentRange.label}`; $('balancesContent').style.display='block';
         }catch(error){console.error('Error al calcular balances:',error);showAlert(error.message||'No se pudo calcular el balance.');}
         finally{$('balancesLoading').style.display='none'; $('balancesRefreshBtn').disabled=false;}
