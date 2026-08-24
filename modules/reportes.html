@@ -91,6 +91,27 @@
             transition: all 0.2s ease;
         }
 
+        .reportes-header .btn-history {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background-color: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reportes-header .btn-history:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+
         .reportes-header .btn-pdf:hover:not(:disabled) {
             background-color: #b91c1c;
             transform: translateY(-1px);
@@ -366,6 +387,15 @@
         }
 
         .financial-history-table td.currency { text-align: right; font-family: 'Courier New', Courier, monospace; }
+
+        .financial-history-empty {
+            margin: 0;
+            padding: 15px;
+            color: #64748b;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
 
         .history-status {
             display: inline-block;
@@ -768,6 +798,9 @@
             <button id="reportesRefreshBtn" class="btn-refresh">
                 <i class="fas fa-sync-alt"></i> Actualizar
             </button>
+            <button id="reportesHistoryBtn" class="btn-history">
+                <i class="fas fa-chart-line"></i> Ver evolución
+            </button>
             <button id="reportesPdfBtn" class="btn-pdf">
                 <i class="fas fa-file-pdf"></i> Exportar PDF
             </button>
@@ -912,14 +945,16 @@
                     </div>
                 </div>
 
-                <section id="financialHistory" class="financial-history" style="display: none;">
+                <section id="financialHistory" class="financial-history">
                     <div class="financial-history-header">
                         <div>
                             <h3><i class="fas fa-chart-line"></i> Evolución financiera</h3>
                             <p>Fotografías diarias registradas a las 21:00. Los valores sin cierre de caja se identifican como referencia.</p>
                         </div>
                     </div>
-                    <div id="financialHistorySummary" class="financial-history-summary"></div>
+                    <div id="financialHistorySummary" class="financial-history-summary">
+                        <p class="financial-history-empty">Cargando historial financiero...</p>
+                    </div>
                     <div class="history-table-wrap">
                         <table class="financial-history-table">
                             <thead>
@@ -1114,6 +1149,7 @@
 
         // Elementos de la cabecera
         const refreshBtn = document.getElementById("reportesRefreshBtn");
+        const historyBtn = document.getElementById("reportesHistoryBtn");
         const pdfBtn = document.getElementById("reportesPdfBtn");
         const lastUpdatedEl = document.getElementById("reportesLastUpdated");
 
@@ -1222,8 +1258,8 @@
         }
 
         async function cargarHistorialFinanciero(supabase) {
-            financialHistory.style.display = 'none';
-            financialHistorySummary.innerHTML = '';
+            financialHistory.style.display = 'block';
+            financialHistorySummary.innerHTML = '<p class="financial-history-empty">Cargando historial financiero...</p>';
             financialHistoryBody.innerHTML = '';
 
             try {
@@ -1234,7 +1270,10 @@
                     .limit(12);
 
                 if (error) throw error;
-                if (!data || data.length === 0) return;
+                if (!data || data.length === 0) {
+                    financialHistorySummary.innerHTML = '<p class="financial-history-empty">Aún no hay cortes registrados. El primer corte se genera a las 21:00.</p>';
+                    return;
+                }
 
                 const actual = data[0];
                 const anterior = data[1] || null;
@@ -1263,8 +1302,9 @@
                 `).join('');
                 financialHistory.style.display = 'block';
             } catch (error) {
-                // La tabla puede no estar creada todavía; no debe bloquear la situación actual.
-                console.warn('El historial financiero aún no está disponible.', error);
+                // No debe bloquear la situación actual si el usuario aún no tiene acceso.
+                console.warn('No se pudo cargar el historial financiero.', error);
+                financialHistorySummary.innerHTML = '<p class="financial-history-empty">El historial no se pudo cargar en este momento. Actualiza el reporte o verifica el acceso del usuario.</p>';
             }
         }
 
@@ -1518,6 +1558,9 @@
 
         // Evento botón actualizar
         refreshBtn.addEventListener("click", fetchBalanceData);
+        historyBtn.addEventListener("click", () => {
+            financialHistory.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         // ==========================================
         // EXPORTACIÓN A PDF CON ANEXOS
