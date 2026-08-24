@@ -721,6 +721,18 @@
                                     <span class="item-name">Inventario de Mercaderías (A costo proveedor)</span>
                                     <span class="item-value" id="sheetInventarioVal">$0.00</span>
                                 </div>
+                                <div class="row-item">
+                                    <span class="item-name">Efectivo en Caja <small id="sheetEfectivoEstado" style="display:block;color:#64748b;font-size:0.72rem;font-style:italic;font-weight:400;"></small></span>
+                                    <span class="item-value" id="sheetEfectivoVal">$0.00</span>
+                                </div>
+                                <div class="row-item" id="sheetEfectivoEstimadoRow" style="display:none;">
+                                    <span class="item-name">Efectivo estimado <small id="sheetEfectivoEstimadoEstado" style="display:block;color:#64748b;font-size:0.72rem;font-style:italic;font-weight:400;"></small></span>
+                                    <span class="item-value" id="sheetEfectivoEstimadoVal">$0.00</span>
+                                </div>
+                                <div class="row-item">
+                                    <span class="item-name">Bancos <small id="sheetBancosEstado" style="display:block;color:#64748b;font-size:0.72rem;font-style:italic;font-weight:400;">Saldo actualizado</small></span>
+                                    <span class="item-value" id="sheetBancosVal">$0.00</span>
+                                </div>
                                 <div class="row-total">
                                     <span class="total-name">Total Activos Corrientes</span>
                                     <span class="total-value" id="sheetTotalActivosCorrientes">$0.00</span>
@@ -960,6 +972,7 @@
         
         let dbInventario = null; // Guardar datos de inventario
         let rawDeudasData = [];  // Guardar datos de proveedores para filtrado
+        let estadoLiquidez = { efectivo: 0, banco: 0, efectivoEstimado: null, etiquetaEfectivo: '', etiquetaEstimado: '', etiquetaBanco: '' };
 
         // Elementos de la cabecera
         const refreshBtn = document.getElementById("reportesRefreshBtn");
@@ -978,6 +991,13 @@
         const kpiPatrimonioNeto = document.getElementById("kpiPatrimonioNeto");
 
         const sheetInventarioVal = document.getElementById("sheetInventarioVal");
+        const sheetEfectivoVal = document.getElementById("sheetEfectivoVal");
+        const sheetEfectivoEstado = document.getElementById("sheetEfectivoEstado");
+        const sheetEfectivoEstimadoRow = document.getElementById("sheetEfectivoEstimadoRow");
+        const sheetEfectivoEstimadoVal = document.getElementById("sheetEfectivoEstimadoVal");
+        const sheetEfectivoEstimadoEstado = document.getElementById("sheetEfectivoEstimadoEstado");
+        const sheetBancosVal = document.getElementById("sheetBancosVal");
+        const sheetBancosEstado = document.getElementById("sheetBancosEstado");
         const sheetTotalActivosCorrientes = document.getElementById("sheetTotalActivosCorrientes");
         const sheetGrandTotalActivos = document.getElementById("sheetGrandTotalActivos");
         
@@ -1029,6 +1049,101 @@
                 : (window.contabilidadSupabase ? window.contabilidadSupabase.getClient() : null);
         }
 
+        function getFechaLocalISO(date = new Date()) {
+            const anio = date.getFullYear();
+            const mes = String(date.getMonth() + 1).padStart(2, '0');
+            const dia = String(date.getDate()).padStart(2, '0');
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        function formatFechaCorta(fechaISO) {
+            if (!fechaISO) return '';
+            const fecha = new Date(`${String(fechaISO).slice(0, 10)}T12:00:00`);
+            return Number.isNaN(fecha.getTime()) ? String(fechaISO) : fecha.toLocaleDateString('es-EC');
+        }
+
+        async function obtenerEstadoLiquidez(supabase) {
+            const hoyISO = getFechaLocalISO();
+            const [cajasRes, cajaInicialRes, bancoRes] = await Promise.all([
+                supabase.from('ferre_caja_diaria').select('fecha, caja_fisica_contada, caja_fisica_esperada').lte('fecha', hoyISO).order('fecha', { ascending: false }).limit(1),
+                supabase.from('ferre_caja_inicial').select('fecha, monto_inicial').lte('fecha', hoyISO).order('fecha', { ascending: false }).limit(1),
+                supabase.from('ferre_saldo_actual').select('monto_total, ultima_actualizacion').order('ultima_actualizacion', { ascending: false }).limit(1)
+            ]);
+
+            if (cajasRes.error) throw cajasRes.error;
+            if (cajaInicialRes.error) throw cajaInicialRes.error;
+            if (bancoRes.error) throw bancoRes.error;
+
+            const cajaCerrada = (cajasRes.data || [])[0] || null;
+            const cajaInicial = (cajaInicialRes.data || [])[0] || null;
+            const banco = (bancoRes.data || [])[0] || null;
+            const bancoMonto = Number(banco?.monto_total || 0);
+            const etiquetaBanco = banco?.ultima_actualizacion
+                ? `Actualizado ${new Date(banco.ultima_actualizacion).toLocaleString('es-EC')}`
+                : 'Saldo actualizado';
+
+            // Una caja diaria del día actual representa un arqueo cerrado y,
+            // por tanto, es la fuente real del efectivo disponible.
+            if (cajaCerrada?.fecha === hoyISO) {
+                return {
+                    efectivo: Number(cajaCerrada.caja_fisica_contada || 0),
+                    banco: bancoMonto,
+                    efectivoEstimado: null,
+                    etiquetaEfectivo: `Caja cerrada el ${formatFechaCorta(cajaCerrada.fecha)}`,
+                    etiquetaEstimado: '',
+                    etiquetaBanco
+                };
+            }
+
+            // Con la jornada abierta, se conserva la caja inicial visible y
+            // se calcula el efectivo esperado con los movimientos del día.
+            if (cajaInicial?.fecha === hoyISO) {
+                const efectivoInicial = Number(cajaInicial.monto_inicial || 0);
+                let efectivoEstimado = efectivoInicial;
+                try {
+                    if (typeof window.calcularResumenDiario === 'function') {
+                        const resumen = await window.calcularResumenDiario(hoyISO);
+                        efectivoEstimado = Number(resumen?.caja?.esperada ?? efectivoInicial);
+                    }
+                } catch (error) {
+                    console.warn('No se pudo calcular el efectivo estimado; se usa la caja inicial.', error);
+                }
+
+                return {
+                    efectivo: efectivoInicial,
+                    banco: bancoMonto,
+                    efectivoEstimado,
+                    etiquetaEfectivo: `Caja inicial del ${formatFechaCorta(cajaInicial.fecha)}`,
+                    etiquetaEstimado: 'Jornada abierta; incluye movimientos registrados',
+                    etiquetaBanco
+                };
+            }
+
+            if (cajaCerrada) {
+                return {
+                    efectivo: Number(cajaCerrada.caja_fisica_contada || 0),
+                    banco: bancoMonto,
+                    efectivoEstimado: null,
+                    etiquetaEfectivo: `Última caja cerrada: ${formatFechaCorta(cajaCerrada.fecha)}`,
+                    etiquetaEstimado: '',
+                    etiquetaBanco
+                };
+            }
+
+            if (cajaInicial) {
+                return {
+                    efectivo: Number(cajaInicial.monto_inicial || 0),
+                    banco: bancoMonto,
+                    efectivoEstimado: null,
+                    etiquetaEfectivo: `Última caja inicial: ${formatFechaCorta(cajaInicial.fecha)}`,
+                    etiquetaEstimado: '',
+                    etiquetaBanco
+                };
+            }
+
+            return { efectivo: 0, banco: bancoMonto, efectivoEstimado: null, etiquetaEfectivo: 'Sin caja registrada', etiquetaEstimado: '', etiquetaBanco };
+        }
+
         // ==========================================
         // CONSULTA Y CÁLCULO GENERAL DE DATOS
         // ==========================================
@@ -1043,10 +1158,11 @@
                 const supabase = getSupabase();
                 if (!supabase) throw new Error("No se pudo obtener el cliente de Supabase.");
 
-                // Consultar en paralelo totales de inventario y deudas
-                const [totalesRes, deudasRes] = await Promise.all([
+                // Consultar en paralelo totales de inventario, deudas y liquidez vigente.
+                const [totalesRes, deudasRes, liquidez] = await Promise.all([
                     supabase.from("ferre_inventario_totales").select("*"),
-                    supabase.from("ferre_v_deuda_proveedores").select("*")
+                    supabase.from("ferre_v_deuda_proveedores").select("*"),
+                    obtenerEstadoLiquidez(supabase)
                 ]);
 
                 if (totalesRes.error) throw totalesRes.error;
@@ -1055,11 +1171,14 @@
                 // Guardar datos en variables para reportes/modales
                 dbInventario = totalesRes.data && totalesRes.data.length > 0 ? totalesRes.data[0] : null;
                 rawDeudasData = deudasRes.data || [];
+                estadoLiquidez = liquidez;
 
                 // 1. ACTIVOS
                 const valorInventario = dbInventario ? parseFloat(dbInventario.valor_total_inventario_proveedor || 0) : 0;
                 const valorMobiliario = 4000.00;
-                const totalActivos = valorInventario + valorMobiliario;
+                const efectivoParaBalance = estadoLiquidez.efectivoEstimado ?? estadoLiquidez.efectivo;
+                const totalActivosCorrientes = valorInventario + efectivoParaBalance + estadoLiquidez.banco;
+                const totalActivos = totalActivosCorrientes + valorMobiliario;
 
                 // 2. PASIVOS
                 let totalDeudaProveedores = 0;
@@ -1079,7 +1198,15 @@
 
                 // --- Rellenar Hoja de Balance ---
                 sheetInventarioVal.textContent = formatCurrency(valorInventario);
-                sheetTotalActivosCorrientes.textContent = formatCurrency(valorInventario);
+                sheetEfectivoVal.textContent = formatCurrency(estadoLiquidez.efectivo);
+                sheetEfectivoEstado.textContent = estadoLiquidez.etiquetaEfectivo;
+                sheetBancosVal.textContent = formatCurrency(estadoLiquidez.banco);
+                sheetBancosEstado.textContent = estadoLiquidez.etiquetaBanco;
+                const hayEstimado = estadoLiquidez.efectivoEstimado !== null;
+                sheetEfectivoEstimadoRow.style.display = hayEstimado ? 'flex' : 'none';
+                sheetEfectivoEstimadoVal.textContent = formatCurrency(estadoLiquidez.efectivoEstimado || 0);
+                sheetEfectivoEstimadoEstado.textContent = estadoLiquidez.etiquetaEstimado;
+                sheetTotalActivosCorrientes.textContent = formatCurrency(totalActivosCorrientes);
                 sheetGrandTotalActivos.textContent = formatCurrency(totalActivos);
 
                 sheetCuentasPagarVal.textContent = formatCurrency(totalDeudaProveedores);
@@ -1222,6 +1349,12 @@
                 const ahora = new Date();
                 const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
                 const hoyStr = ahora.toLocaleDateString("es-EC", opcionesFecha);
+                const efectivoParaBalance = estadoLiquidez.efectivoEstimado ?? estadoLiquidez.efectivo;
+                const etiquetaEfectivoPdf = estadoLiquidez.efectivoEstimado !== null
+                    ? 'Efectivo estimado (caja abierta)'
+                    : 'Efectivo en caja';
+                const totalActivosCorrientesPdf = Number(dbInventario.valor_total_inventario_proveedor || 0) + efectivoParaBalance + Number(estadoLiquidez.banco || 0);
+                const totalActivosPdf = totalActivosCorrientesPdf + 4000;
                 
                 // --- PÁGINA 1: ESTADO DE SITUACIÓN FINANCIERA ---
                 const p1Div = document.createElement("div");
@@ -1253,9 +1386,17 @@
                                         <span>Inventario de Mercaderías <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(Anexo 1)</span></span>
                                         <span style="font-family: monospace; font-weight: 600;">${formatCurrency(dbInventario.valor_total_inventario_proveedor)}</span>
                                     </div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; margin-bottom: 6px;">
+                                        <span>${etiquetaEfectivoPdf} <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(${estadoLiquidez.etiquetaEfectivo || 'Sin caja registrada'})</span></span>
+                                        <span style="font-family: monospace; font-weight: 600;">${formatCurrency(efectivoParaBalance)}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding-left: 8px; margin-bottom: 6px;">
+                                        <span>Bancos <span style="font-size: 0.72rem; color: #64748b; font-style: italic;">(Saldo actualizado)</span></span>
+                                        <span style="font-family: monospace; font-weight: 600;">${formatCurrency(estadoLiquidez.banco)}</span>
+                                    </div>
                                     <div style="display: flex; justify-content: space-between; font-weight: 700; border-top: 1px solid #e2e8f0; padding: 4px 0 4px 8px; margin-top: 4px;">
                                         <span>Total Activos Corrientes</span>
-                                        <span style="font-family: monospace;">${formatCurrency(dbInventario.valor_total_inventario_proveedor)}</span>
+                                        <span style="font-family: monospace;">${formatCurrency(totalActivosCorrientesPdf)}</span>
                                     </div>
                                 </div>
 
@@ -1273,7 +1414,7 @@
 
                                 <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 800; color: #ffffff; background-color: #0f172a; padding: 8px 10px; border-radius: 4px; margin-top: 20px;">
                                     <span>TOTAL ACTIVOS</span>
-                                    <span style="font-family: monospace;">${formatCurrency(parseFloat(dbInventario.valor_total_inventario_proveedor) + 4000)}</span>
+                                    <span style="font-family: monospace;">${formatCurrency(totalActivosPdf)}</span>
                                 </div>
                             </td>
 
