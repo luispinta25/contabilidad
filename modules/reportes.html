@@ -266,6 +266,118 @@
             animation: reportesFadeIn 0.3s ease-out;
         }
 
+        .financial-history {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .financial-history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .financial-history-header h3 {
+            margin: 0 0 5px;
+            color: #0f172a;
+            font-size: 1rem;
+        }
+
+        .financial-history-header p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+
+        .financial-history-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .history-summary-card {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px;
+            border-left: 4px solid #94a3b8;
+        }
+
+        .history-summary-card.assets { border-left-color: #3b82f6; }
+        .history-summary-card.liabilities { border-left-color: #ef4444; }
+        .history-summary-card.equity { border-left-color: #10b981; }
+
+        .history-summary-label {
+            display: block;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .history-summary-value {
+            display: block;
+            margin-top: 4px;
+            color: #0f172a;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .history-summary-change {
+            display: block;
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 0.74rem;
+        }
+
+        .history-summary-change.positive { color: #047857; }
+        .history-summary-change.negative { color: #b91c1c; }
+
+        .history-table-wrap { overflow-x: auto; }
+
+        .financial-history-table {
+            width: 100%;
+            min-width: 640px;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .financial-history-table th {
+            padding: 10px 8px;
+            text-align: left;
+            color: #64748b;
+            font-size: 0.68rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .financial-history-table td {
+            padding: 10px 8px;
+            color: #334155;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .financial-history-table td.currency { text-align: right; font-family: 'Courier New', Courier, monospace; }
+
+        .history-status {
+            display: inline-block;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 3px 7px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
         /* SHEET DOCUMENT STYLING */
         .document-sheet {
             background-color: #ffffff;
@@ -639,6 +751,8 @@
                 gap: 30px;
             }
 
+            .financial-history-summary { grid-template-columns: 1fr; }
+
             .grand-total-row {
                 margin-top: 12px;
             }
@@ -797,6 +911,30 @@
                         </div>
                     </div>
                 </div>
+
+                <section id="financialHistory" class="financial-history" style="display: none;">
+                    <div class="financial-history-header">
+                        <div>
+                            <h3><i class="fas fa-chart-line"></i> Evolución financiera</h3>
+                            <p>Fotografías diarias registradas a las 21:00. Los valores sin cierre de caja se identifican como referencia.</p>
+                        </div>
+                    </div>
+                    <div id="financialHistorySummary" class="financial-history-summary"></div>
+                    <div class="history-table-wrap">
+                        <table class="financial-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Estado de caja</th>
+                                    <th style="text-align:right;">Activos</th>
+                                    <th style="text-align:right;">Pasivos</th>
+                                    <th style="text-align:right;">Patrimonio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialHistoryBody"></tbody>
+                        </table>
+                    </div>
+                </section>
 
                 <!-- Botonera de Submódulos de Anexos -->
                 <div class="submodules-panel">
@@ -1009,6 +1147,9 @@
         const sheetTotalPatrimonio = document.getElementById("sheetTotalPatrimonio");
         const sheetGrandTotalPasivosPatrimonio = document.getElementById("sheetGrandTotalPasivosPatrimonio");
         const balanceSheetDate = document.getElementById("balanceSheetDate");
+        const financialHistory = document.getElementById("financialHistory");
+        const financialHistorySummary = document.getElementById("financialHistorySummary");
+        const financialHistoryBody = document.getElementById("financialHistoryBody");
 
         // Elementos del modal de Inventario
         const modalValProveedor = document.getElementById("modalValProveedor");
@@ -1060,6 +1201,71 @@
             if (!fechaISO) return '';
             const fecha = new Date(`${String(fechaISO).slice(0, 10)}T12:00:00`);
             return Number.isNaN(fecha.getTime()) ? String(fechaISO) : fecha.toLocaleDateString('es-EC');
+        }
+
+        function etiquetaEstadoCaja(estado) {
+            const etiquetas = {
+                CERRADA: 'Caja cerrada',
+                ABIERTA_SIN_CIERRE: 'Caja inicial, sin cierre',
+                ULTIMO_CIERRE: 'Último cierre disponible',
+                SIN_CAJA: 'Sin caja registrada'
+            };
+            return etiquetas[estado] || 'Referencia de caja';
+        }
+
+        function formatoVariacion(actual, anterior) {
+            if (anterior === null || anterior === undefined) return 'Sin período anterior';
+            const diferencia = Number(actual || 0) - Number(anterior || 0);
+            const signo = diferencia > 0 ? '+' : '';
+            const clase = diferencia > 0 ? 'positive' : diferencia < 0 ? 'negative' : '';
+            return `<span class="history-summary-change ${clase}">${signo}${formatCurrency(diferencia)} frente al registro anterior</span>`;
+        }
+
+        async function cargarHistorialFinanciero(supabase) {
+            financialHistory.style.display = 'none';
+            financialHistorySummary.innerHTML = '';
+            financialHistoryBody.innerHTML = '';
+
+            try {
+                const { data, error } = await supabase
+                    .from('ferre_situacion_financiera_historial')
+                    .select('fecha, estado_caja, total_activos, total_pasivos, patrimonio_neto')
+                    .order('fecha', { ascending: false })
+                    .limit(12);
+
+                if (error) throw error;
+                if (!data || data.length === 0) return;
+
+                const actual = data[0];
+                const anterior = data[1] || null;
+                const resumenes = [
+                    { clase: 'assets', etiqueta: 'Activos al último corte', valor: actual.total_activos, anterior: anterior?.total_activos },
+                    { clase: 'liabilities', etiqueta: 'Pasivos al último corte', valor: actual.total_pasivos, anterior: anterior?.total_pasivos },
+                    { clase: 'equity', etiqueta: 'Patrimonio al último corte', valor: actual.patrimonio_neto, anterior: anterior?.patrimonio_neto }
+                ];
+
+                financialHistorySummary.innerHTML = resumenes.map(item => `
+                    <div class="history-summary-card ${item.clase}">
+                        <span class="history-summary-label">${item.etiqueta}</span>
+                        <span class="history-summary-value">${formatCurrency(item.valor)}</span>
+                        ${formatoVariacion(item.valor, item.anterior)}
+                    </div>
+                `).join('');
+
+                financialHistoryBody.innerHTML = data.map(item => `
+                    <tr>
+                        <td>${formatFechaCorta(item.fecha)}</td>
+                        <td><span class="history-status">${etiquetaEstadoCaja(item.estado_caja)}</span></td>
+                        <td class="currency">${formatCurrency(item.total_activos)}</td>
+                        <td class="currency">${formatCurrency(item.total_pasivos)}</td>
+                        <td class="currency">${formatCurrency(item.patrimonio_neto)}</td>
+                    </tr>
+                `).join('');
+                financialHistory.style.display = 'block';
+            } catch (error) {
+                // La tabla puede no estar creada todavía; no debe bloquear la situación actual.
+                console.warn('El historial financiero aún no está disponible.', error);
+            }
         }
 
         async function obtenerEstadoLiquidez(supabase) {
@@ -1232,6 +1438,10 @@
 
                 // Modal de Proveedores
                 renderDeudasTableInModal(rawDeudasData);
+
+                // Historial independiente: si todavía no se ejecutó el SQL de
+                // instalación, el reporte actual continúa disponible sin error.
+                await cargarHistorialFinanciero(supabase);
 
                 // Mostrar contenido
                 situacionLoading.style.display = "none";
