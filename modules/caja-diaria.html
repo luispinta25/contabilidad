@@ -78,7 +78,7 @@
             <div class="stat-card">
                 <span class="stat-label">Egresos</span>
                 <span class="stat-value" id="statEgresosTotales">$0.00</span>
-                <span class="stat-note">Gastos: <span id="statGastos">$0.00</span> · Facturas contado: <span id="statFacturasContado">$0.00</span> · Devoluciones: <span id="statDevoluciones">$0.00</span> · Diezmo: <span id="statDiezmo">$0.00</span></span>
+                <span class="stat-note">Gastos: <span id="statGastos">$0.00</span> · Facturas contado: <span id="statFacturasContado">$0.00</span> · Préstamos efec.: <span id="statPrestamosEfectivo">$0.00</span> · Devoluciones: <span id="statDevoluciones">$0.00</span> · Diezmo: <span id="statDiezmo">$0.00</span></span>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Transferencias</span>
@@ -3413,6 +3413,7 @@ _Sistema de Gestión Ferrisoluciones_`;
             updateText('statGastos', formatCurrency(0));
             updateText('statGastosEfectivo', formatCurrency(0));
             updateText('statFacturasContado', formatCurrency(0));
+            updateText('statPrestamosEfectivo', formatCurrency(0));
             updateText('statDevoluciones', formatCurrency(0));
             updateText('statDiezmo', formatCurrency(0));
             updateText('statTransferNeto', formatCurrency(0));
@@ -3442,6 +3443,7 @@ _Sistema de Gestión Ferrisoluciones_`;
         updateText('statGastos', formatCurrency(resumen.egresos.gastos));
         updateText('statGastosEfectivo', formatCurrency(resumen.egresos.gastosEfectivo ?? resumen.egresos.gastos));
         updateText('statFacturasContado', formatCurrency(resumen.egresos.proveedoresDetalle?.facturasContadoEfectivo || 0));
+        updateText('statPrestamosEfectivo', formatCurrency(resumen.egresos.prestamosEfectivo || 0));
         updateText('statDevoluciones', formatCurrency(resumen.egresos.devoluciones || 0));
         updateText('statDiezmo', formatCurrency(resumen.egresos.diezmo || 0));
         updateText('statTransferNeto', formatCurrency(resumen.transferencias.neto));

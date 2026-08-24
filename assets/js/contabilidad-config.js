@@ -650,7 +650,9 @@ async function getSaldoActual() {
 async function detectarCreditosPagadosMismoDia(creditos, pagos) {
     const creditosPagadosHoy = [];
 
-    for (const credito of creditos) {
+    // El aviso solo aplica a ventas a crédito: un préstamo EFECTIVO creado y
+    // devuelto el mismo día tiene movimiento físico neto cero, no un desfase.
+    for (const credito of creditos.filter(credito => (credito.tipo || '').toUpperCase() === 'VENTA')) {
         // Verificar si hay pagos del mismo crédito en el día
         const pagosMismoDia = pagos.filter(pago => 
             pago.cuentas_por_cobrar?.id === credito.id
@@ -775,7 +777,15 @@ async function calcularResumenDiario(fecha = new Date()) {
         const totalVentas = totalVentasEfectivo + totalVentasTransferencia + totalVentasCredito;
 
         // Calcular ingresos
-        const totalCreditosOtorgados = creditos.reduce((sum, c) => sum + parseFloat(c.monto || 0), 0);
+        // Las cuentas tipo EFECTIVO son préstamos de dinero, no ventas a
+        // crédito. El importe sale físicamente de caja y solo volverá a entrar
+        // cuando se registre su abono en CxC.
+        const prestamosEfectivo = creditos.filter(credito => (credito.tipo || '').toUpperCase() === 'EFECTIVO');
+        const creditosNoPrestamo = creditos.filter(credito => (credito.tipo || '').toUpperCase() !== 'EFECTIVO');
+        const totalPrestamosEfectivo = prestamosEfectivo
+            .reduce((sum, credito) => sum + parseFloat(credito.monto || 0), 0);
+        const totalCreditosOtorgados = creditosNoPrestamo
+            .reduce((sum, credito) => sum + parseFloat(credito.monto || 0), 0);
 
         const totalPagosCxC = pagos.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         console.log('💰 Pagos CxC recibidos:', pagos.map(p => ({ id: p.id, monto: p.monto_pago, forma_pago: p.forma_pago, metodo_pago: p.metodo_pago })));
@@ -864,12 +874,12 @@ async function calcularResumenDiario(fecha = new Date()) {
         // Ingresos Totales = Ventas pagadas + CxC anotadas del día + Pagos CxC + Otros
         // No sumamos transferencias porque ya están incluidas en las ventas o pagos CxC
         const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalCreditosOtorgados + totalPagosCxC + cambiosIngresosTotal + otrosIngresos;
-        const totalIngresosMovimientos = ventasEfectivo.length + ventasMixtas.length + ventasTransferencia.length + creditos.length + pagos.length + movimientosDevoluciones.filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja)).length;
+        const totalIngresosMovimientos = ventasEfectivo.length + ventasMixtas.length + ventasTransferencia.length + creditosNoPrestamo.length + pagos.length + movimientosDevoluciones.filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja)).length;
 
-        // Egresos Totales = Pagos a Proveedores + Gastos + Devoluciones + Diezmo apartado.
+        // Egresos Totales = Pagos a Proveedores + Gastos + Devoluciones + Diezmo apartado + Préstamos en efectivo.
         // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
-        const totalEgresosGlobal = totalPagosProveedores + totalGastos + devolucionesEfectivo + diezmoEfectivo;
-        const totalEgresosMovimientos = pagosProveedores.length + gastos.length + devoluciones.filter(devolucion => devolucion.tipo === 'DEVOLUCION').length + movimientosDiezmo.filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo').length;
+        const totalEgresosGlobal = totalPagosProveedores + totalGastos + devolucionesEfectivo + diezmoEfectivo + totalPrestamosEfectivo;
+        const totalEgresosMovimientos = pagosProveedores.length + gastos.length + devoluciones.filter(devolucion => devolucion.tipo === 'DEVOLUCION').length + movimientosDiezmo.filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo').length + prestamosEfectivo.length;
 
         const cajaFisicaIngresos = {
             ventas: totalVentasEfectivo,
@@ -882,6 +892,7 @@ async function calcularResumenDiario(fecha = new Date()) {
             gastos: gastosEfectivo,
             devoluciones: devolucionesEfectivo,
             diezmo: diezmoEfectivo,
+            prestamosEfectivo: totalPrestamosEfectivo,
             // Si das efectivo a cambio de una transferencia, es una salida de efectivo (egreso físico).
             // Los cambios CXXXX se separan para que el efecto sea claro:
             // ingreso bancario CXXXX resta caja física; egreso bancario CXXXX suma caja física.
@@ -889,7 +900,7 @@ async function calcularResumenDiario(fecha = new Date()) {
             cambiosDinero: cambiosDineroIngresoBanco
         };
         const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros + cajaFisicaIngresos.cambiosDinero
-            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.devoluciones - cajaFisicaEgresos.diezmo - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
+            - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.devoluciones - cajaFisicaEgresos.diezmo - cajaFisicaEgresos.prestamosEfectivo - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
 
         const cajaVirtualIngresos = {
             // transferencias.totalIngresos ya incluye las ventas por transferencia y posiblemente pagos CxC si se registran ahí
@@ -934,9 +945,11 @@ async function calcularResumenDiario(fecha = new Date()) {
                 totalDevueltas: ventasDevueltas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0)
             },
             creditos: {
-                otorgados: creditos,
-                cantidad: creditos.length,
+                otorgados: creditosNoPrestamo,
+                cantidad: creditosNoPrestamo.length,
                 total: totalCreditosOtorgados,
+                prestamosEfectivo,
+                totalPrestamosEfectivo,
                 pagadosMismoDia: creditosPagadosHoy
             },
             ingresos: {
@@ -974,6 +987,7 @@ async function calcularResumenDiario(fecha = new Date()) {
                 gastosTransferencia: totalGastosTransferencia,
                 devoluciones: devolucionesEfectivo,
                 diezmo: diezmoEfectivo,
+                prestamosEfectivo: totalPrestamosEfectivo,
                 transferencias: 0, // Ya no sumamos transferencias a los egresos
                 cantidad: totalEgresosMovimientos,
                 listaProveedores: pagosProveedores,
