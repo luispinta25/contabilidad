@@ -2,6 +2,6 @@
     "use strict";
 
     root.CONTABILIDAD_APP = Object.freeze({
-        version: "3.1.5"
+        version: "4.0.0"
     });
 })(typeof self !== "undefined" ? self : window);
