@@ -591,6 +591,7 @@ function getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds) {
     const tipo = String(devolucion?.tipo || 'DEVOLUCION').toUpperCase();
     const totalDevuelto = parseFloat(devolucion?.total_devuelto || 0);
     const diferencia = parseFloat(devolucion?.diferencia || 0);
+    const montoAplicadoCxc = parseFloat(devolucion?.monto_aplicado_cxc || 0);
     const esVentaAnuladaHoy = ventasDevueltasHoyIds.has(devolucion?.venta_id);
 
     if (esVentaAnuladaHoy) {
@@ -598,6 +599,12 @@ function getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds) {
     }
 
     if (tipo === 'CAMBIO') {
+        // La diferencia ya es lo que realmente se cobró/entregó en caja al
+        // momento del cambio (vía tipo_pago_diferencia), sin importar si la
+        // venta original era a crédito: eso no cambia. La reducción de CxC
+        // es un efecto aparte e independiente (ver el insert en
+        // ferre_pagos_cuentas_por_cobrar que hace devConfirmar/confirmarDevolucion),
+        // por eso aquí no se toca este cálculo.
         if (diferencia < -0.009) {
             return { ...devolucion, efectoCaja: 'salida', montoCaja: Math.abs(diferencia), detalleCaja: 'Vuelto entregado al cliente' };
         }
@@ -613,7 +620,21 @@ function getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds) {
         return { ...devolucion, efectoCaja: 'sin-efecto', montoCaja: 0, detalleCaja: 'Cambio sin diferencia de dinero' };
     }
 
-    return { ...devolucion, efectoCaja: 'salida', montoCaja: totalDevuelto, detalleCaja: 'Devolución entregada al cliente' };
+    // Lo devuelto de una venta a crédito nunca fue efectivo real (la venta
+    // original nunca lo cobró): la parte aplicada a reducir la cuenta por
+    // cobrar se excluye antes de calcular el efecto en caja física.
+    const totalDevueltoCaja = Math.max(0, Math.round((totalDevuelto - montoAplicadoCxc) * 100) / 100);
+    if (totalDevueltoCaja <= 0.009) {
+        return { ...devolucion, efectoCaja: 'sin-efecto', montoCaja: 0, detalleCaja: 'Devolución aplicada a cuenta por cobrar' };
+    }
+    return {
+        ...devolucion,
+        efectoCaja: 'salida',
+        montoCaja: totalDevueltoCaja,
+        detalleCaja: montoAplicadoCxc > 0.009
+            ? 'Devolución entregada al cliente (resto aplicado a cuenta por cobrar)'
+            : 'Devolución entregada al cliente'
+    };
 }
 
 function codigoEmpiezaCon(movimiento, prefijo) {
@@ -650,11 +671,16 @@ async function getSaldoActual() {
 async function detectarCreditosPagadosMismoDia(creditos, pagos) {
     const creditosPagadosHoy = [];
 
+    // Un pago forma_pago='DEVOLUCION' no es un pago real (no entró dinero):
+    // es una reducción de deuda por mercadería devuelta. Contarlo aquí
+    // sugeriría un desfase a favor que nunca existió como efectivo.
+    const pagosReales = pagos.filter(pago => (pago.forma_pago || '').toUpperCase() !== 'DEVOLUCION');
+
     // El aviso solo aplica a ventas a crédito: un préstamo EFECTIVO creado y
     // devuelto el mismo día tiene movimiento físico neto cero, no un desfase.
     for (const credito of creditos.filter(credito => (credito.tipo || '').toUpperCase() === 'VENTA')) {
         // Verificar si hay pagos del mismo crédito en el día
-        const pagosMismoDia = pagos.filter(pago => 
+        const pagosMismoDia = pagosReales.filter(pago =>
             pago.cuentas_por_cobrar?.id === credito.id
         );
 
@@ -814,9 +840,20 @@ async function calcularResumenDiario(fecha = new Date()) {
         const totalCreditosOtorgados = creditosNoPrestamo
             .reduce((sum, credito) => sum + parseFloat(credito.monto || 0), 0);
 
-        const totalPagosCxC = pagos.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
+        // Un pago con forma_pago='DEVOLUCION' no es dinero real entrando a caja:
+        // es la reducción automática de una cuenta por cobrar cuando se
+        // devuelve mercadería de una venta a crédito (ver getMovimientoCajaDevolucion,
+        // que ya excluyó ese mismo monto de devolucionesEfectivo). Contarlo aquí
+        // también inflaría totalIngresos con dinero que nunca existió.
+        const esPagoCxCPorDevolucion = p => (p.forma_pago || '').toUpperCase() === 'DEVOLUCION';
+        const pagosCxCReduccionDevolucion = pagos.filter(esPagoCxCPorDevolucion);
+        const totalPagosCxCReduccionDevolucion = pagosCxCReduccionDevolucion
+            .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
+        const pagosCxCReales = pagos.filter(p => !esPagoCxCPorDevolucion(p));
+
+        const totalPagosCxC = pagosCxCReales.reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         console.log('💰 Pagos CxC recibidos:', pagos.map(p => ({ id: p.id, monto: p.monto_pago, forma_pago: p.forma_pago, metodo_pago: p.metodo_pago })));
-        const pagosCxCTransferencia = pagos
+        const pagosCxCTransferencia = pagosCxCReales
             .filter(p => ['TRANSFERENCIA', 'DEPOSITO', 'DEPÓSITO', 'TARJETA', 'CHEQUE'].includes((p.forma_pago || p.metodo_pago || '').toUpperCase()))
             .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         // Pagos CxC en efectivo: forma_pago EFECTIVO, o sin forma_pago definida (asumimos efectivo)
@@ -994,6 +1031,11 @@ async function calcularResumenDiario(fecha = new Date()) {
                     transferencia: pagosCxCTransferencia,
                     otros: pagosCxCOtros
                 },
+                // Informativo: reducciones de CxC por devolución de mercadería
+                // (forma_pago='DEVOLUCION'). No es efectivo real, por eso queda
+                // fuera de pagosCxC/detallePagosCxC y de totalIngresos.
+                pagosCxCPorDevolucion: totalPagosCxCReduccionDevolucion,
+                listaPagosCxCPorDevolucion: pagosCxCReduccionDevolucion,
                 detalleVentas: {
                     efectivo: totalVentasEfectivo,
                     transferencia: totalVentasTransferencia,
