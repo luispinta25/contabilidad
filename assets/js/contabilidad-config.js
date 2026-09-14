@@ -119,7 +119,7 @@ async function getVentasDelDia(targetDate = new Date()) {
             .select('*')
             .gte('fecha_hora_venta', startOfDay)
             .lte('fecha_hora_venta', endOfDay)
-            .in('estado', ['COMPLETADO', 'AUTORIZADO', 'DEVUELTO'])
+            .in('estado', ['COMPLETADO', 'AUTORIZADO', 'DEVUELTO', 'CAMBIADO'])
             .order('fecha_hora_venta', { ascending: false });
 
         if (error) throw error;
@@ -725,12 +725,39 @@ async function calcularResumenDiario(fecha = new Date()) {
         });
 
         // Calcular ventas
-        // Separar activas (COMPLETADO/AUTORIZADO) de devueltas (DEVUELTO)
+        // Separar activas (COMPLETADO/AUTORIZADO/CAMBIADO) de devueltas (DEVUELTO)
         const ventasActivas = ventas.filter(v => v.estado !== 'DEVUELTO');
         const ventasDevueltas = ventas.filter(v => v.estado === 'DEVUELTO');
 
         const gananciaVentas = ventasActivas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0)
             - ventasDevueltas.reduce((sum, v) => sum + parseFloat(v.ganancia || 0), 0);
+
+        // ferre_ventas.total nunca se actualiza cuando hay una devolución
+        // parcial (el flujo de devoluciones solo inserta historial, nunca
+        // hace UPDATE sobre la venta) -- así que una venta con devolución
+        // parcial (estado se queda en COMPLETADO/AUTORIZADO/CAMBIADO, no pasa
+        // a DEVUELTO salvo que la devolución cubra toda la venta) sigue
+        // sumando su total original completo aquí. Se ajusta restando
+        // diferencia (= total_cobrado - total_devuelto) por id_venta, EXCEPTO
+        // para devoluciones de una venta que ya quedó en ventasDevueltas hoy
+        // mismo -- esa venta ya no suma nada (ver getMovimientoCajaDevolucion,
+        // mismo criterio "esVentaAnuladaHoy" para no restar dos veces un
+        // efecto que la venta excluida ya no aporta.
+        // Ver documentacion/incidentes/devoluciones/20260913_devolucion_parcial_triplicada.md.
+        const ventasDevueltasHoyIds = new Set(ventasDevueltas.map(venta => venta.id));
+        const diferenciaPorVenta = new Map();
+        devoluciones.forEach(dev => {
+            if (!dev?.id_venta || ventasDevueltasHoyIds.has(dev.venta_id)) return;
+            diferenciaPorVenta.set(dev.id_venta, (diferenciaPorVenta.get(dev.id_venta) || 0) + parseFloat(dev.diferencia || 0));
+        });
+        const totalAjustadoVenta = (venta) => {
+            const diferencia = diferenciaPorVenta.get(venta.id_venta);
+            return diferencia ? Math.round((parseFloat(venta.total || 0) + diferencia) * 100) / 100 : parseFloat(venta.total || 0);
+        };
+        // Se anexa a cada fila de `ventas` (y por lo tanto a `resumen.ventas.lista`)
+        // para que las tablas de detalle (dashboard.js) también puedan mostrar
+        // el total ajustado en vez del original sin tocar.
+        ventas.forEach(v => { v._totalAjustado = totalAjustadoVenta(v); });
 
         // Separar ventas por tipo de pago y crédito (sobre activas como base)
         const ventasIdCredito = creditos
@@ -759,11 +786,11 @@ async function calcularResumenDiario(fecha = new Date()) {
         // Las ventas DEVUELTO ya están excluidas de ventasActivas, por lo que su efecto
         // neto en los totales es cero (no se suman ni se restan por separado).
         // ventasDevueltas se guarda solo para informar en el resumen.
-        const totalVentasCredito = ventasCredito.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
-        const totalVentasEfectivoDirecto = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
-        const totalVentasTransferenciaDirecta = ventasTransferencia.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+        const totalVentasCredito = ventasCredito.reduce((sum, v) => sum + totalAjustadoVenta(v), 0);
+        const totalVentasEfectivoDirecto = ventasEfectivo.reduce((sum, v) => sum + totalAjustadoVenta(v), 0);
+        const totalVentasTransferenciaDirecta = ventasTransferencia.reduce((sum, v) => sum + totalAjustadoVenta(v), 0);
         const resumenVentasMixtas = ventasMixtas.reduce((sum, venta) => {
-            const totalVenta = parseFloat(venta.total || 0);
+            const totalVenta = totalAjustadoVenta(venta);
             const montoTransferencia = Math.min(
                 Math.max(transferenciasIngresoPorVenta.get(venta.id_venta) || 0, 0),
                 totalVenta
@@ -826,7 +853,7 @@ async function calcularResumenDiario(fecha = new Date()) {
 
         // Una venta anulada el mismo día ya está excluida de ventasActivas.
         // No se descuenta de nuevo su devolución: el efecto neto de caja es cero.
-        const ventasDevueltasHoyIds = new Set(ventasDevueltas.map(venta => venta.id));
+        // (ventasDevueltasHoyIds ya se calculó más arriba, junto a totalAjustadoVenta)
         const movimientosDevoluciones = devoluciones.map(devolucion => getMovimientoCajaDevolucion(devolucion, ventasDevueltasHoyIds));
         const devolucionesEfectivo = movimientosDevoluciones
             .filter(movimiento => movimiento.efectoCaja === 'salida')

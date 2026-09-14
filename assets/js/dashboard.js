@@ -202,7 +202,7 @@ function verDetallesVentas() {
                             <td><strong>${venta.id_venta}</strong></td>
                             <td>${venta.cliente_id || 'Consumidor Final'}</td>
                             <td><span style="color: ${venta.tipo === 'FACTURA' ? '#3498db' : '#95a5a6'}; font-weight: 600;">${venta.tipo}</span></td>
-                            <td>${formatCurrency(venta.total)}</td>
+                            <td>${formatCurrency(venta._totalAjustado ?? venta.total)}</td>
                             <td><span style="color: ${getEstadoColor(venta.estado)}; font-weight: 600;">${venta.estado}</span></td>
                         </tr>
                     `).join('')}
@@ -231,7 +231,7 @@ function verDetalleVentasEfectivo() {
         return;
     }
 
-    const total = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+    const total = ventasEfectivo.reduce((sum, v) => sum + parseFloat(v._totalAjustado ?? v.total ?? 0), 0);
 
     const html = `
         <div class="table-container">
@@ -250,7 +250,7 @@ function verDetalleVentasEfectivo() {
                             <td>${formatTime(venta.fecha_hora_venta)}</td>
                             <td><strong>${venta.id_venta}</strong></td>
                             <td>${venta.tipo}</td>
-                            <td>${formatCurrency(venta.total)}</td>
+                            <td>${formatCurrency(venta._totalAjustado ?? venta.total)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
