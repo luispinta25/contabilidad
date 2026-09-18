@@ -642,23 +642,38 @@ function codigoEmpiezaCon(movimiento, prefijo) {
 }
 
 /**
- * Obtiene el saldo actual de caja virtual (tabla saldo_actual)
+ * Obtiene el saldo actual de caja virtual (bancos). La tabla ferre_saldo_actual
+ * (una sola fila global, mantenida por un trigger en ferre_transferencias) se
+ * eliminó del lado de Ferrisoluciones el 2026-09-17: los saldos ahora viven
+ * por banco en la vista ferre_saldos_bancarios, pero esa vista quedó
+ * restringida a service_role (revoke ... from anon, authenticated), así que
+ * esta app -- que solo consulta Supabase directo con la sesión del usuario,
+ * sin backend propio -- no puede leerla. En su lugar se recalcula el mismo
+ * total aquí: suma de ingresos menos egresos de TODA la tabla
+ * ferre_transferencias (accesible para authenticated), igual que hacía el
+ * trigger. La tabla tiene apenas ~1100 filas hoy, así que traerla completa
+ * es barato; si algún día crece mucho conviene mover este cálculo a un
+ * endpoint del backend (ver GET /api/payment-methods/transfer/balances en
+ * api-pos, que ya hace lo mismo por banco con service_role).
  */
 async function getSaldoActual() {
     try {
         const supabase = getSupabaseClient();
         const { data, error } = await supabase
-            .from('ferre_saldo_actual')
-            .select('*')
-            .eq('id', 1)
-            .maybeSingle();
+            .from('ferre_transferencias')
+            .select('caso, monto');
 
         if (error) {
-            console.error('❌ Error al obtener saldo_actual:', error);
+            console.error('❌ Error al calcular el saldo actual:', error);
             return null;
         }
 
-        return data || null;
+        const montoTotal = (data || []).reduce((sum, movimiento) => {
+            const monto = parseFloat(movimiento.monto || 0);
+            return sum + (movimiento.caso === 'ingreso' ? monto : -monto);
+        }, 0);
+
+        return { monto_total: montoTotal, ultima_actualizacion: new Date().toISOString() };
     } catch (error) {
         console.error('Error en getSaldoActual:', error);
         return null;

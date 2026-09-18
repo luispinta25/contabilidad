@@ -1310,19 +1310,21 @@
 
         async function obtenerEstadoLiquidez(supabase) {
             const hoyISO = getFechaLocalISO();
-            const [cajasRes, cajaInicialRes, bancoRes] = await Promise.all([
+            // El saldo de banco ya no vive en ferre_saldo_actual (eliminada,
+            // ver getSaldoActual en contabilidad-config.js) -- se usa esa
+            // misma función compartida en vez de consultar la tabla vieja
+            // directamente, para no duplicar el cálculo en dos lugares.
+            const [cajasRes, cajaInicialRes, banco] = await Promise.all([
                 supabase.from('ferre_caja_diaria').select('fecha, caja_fisica_contada, caja_fisica_esperada').lte('fecha', hoyISO).order('fecha', { ascending: false }).limit(1),
                 supabase.from('ferre_caja_inicial').select('fecha, monto_inicial').lte('fecha', hoyISO).order('fecha', { ascending: false }).limit(1),
-                supabase.from('ferre_saldo_actual').select('monto_total, ultima_actualizacion').order('ultima_actualizacion', { ascending: false }).limit(1)
+                getSaldoActual()
             ]);
 
             if (cajasRes.error) throw cajasRes.error;
             if (cajaInicialRes.error) throw cajaInicialRes.error;
-            if (bancoRes.error) throw bancoRes.error;
 
             const cajaCerrada = (cajasRes.data || [])[0] || null;
             const cajaInicial = (cajaInicialRes.data || [])[0] || null;
-            const banco = (bancoRes.data || [])[0] || null;
             const bancoMonto = Number(banco?.monto_total || 0);
             const etiquetaBanco = banco?.ultima_actualizacion
                 ? `Actualizado ${new Date(banco.ultima_actualizacion).toLocaleString('es-EC')}`
