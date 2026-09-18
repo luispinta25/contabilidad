@@ -642,38 +642,51 @@ function codigoEmpiezaCon(movimiento, prefijo) {
 }
 
 /**
- * Obtiene el saldo actual de caja virtual (bancos). La tabla ferre_saldo_actual
- * (una sola fila global, mantenida por un trigger en ferre_transferencias) se
- * eliminó del lado de Ferrisoluciones el 2026-09-17: los saldos ahora viven
- * por banco en la vista ferre_saldos_bancarios, pero esa vista quedó
- * restringida a service_role (revoke ... from anon, authenticated), así que
- * esta app -- que solo consulta Supabase directo con la sesión del usuario,
- * sin backend propio -- no puede leerla. En su lugar se recalcula el mismo
- * total aquí: suma de ingresos menos egresos de TODA la tabla
- * ferre_transferencias (accesible para authenticated), igual que hacía el
- * trigger. La tabla tiene apenas ~1100 filas hoy, así que traerla completa
- * es barato; si algún día crece mucho conviene mover este cálculo a un
- * endpoint del backend (ver GET /api/payment-methods/transfer/balances en
- * api-pos, que ya hace lo mismo por banco con service_role).
+ * Obtiene el saldo actual de banco (todas las cuentas activas sumadas).
+ *
+ * La tabla ferre_saldo_actual (una sola fila global) se eliminó del lado de
+ * Ferrisoluciones el 2026-09-17. Un primer intento la reemplazó sumando
+ * ingresos menos egresos de TODA la tabla ferre_transferencias -- resultó
+ * mal: esa tabla también guarda movimientos sin banco asignado (viejos,
+ * explícitamente marcados como "no representa una cuenta disponible" en
+ * ferre_saldos_bancarios_cortes) y además el saldo real de cada banco no es
+ * la suma desde el inicio, sino desde el último "corte" de conciliación
+ * manual (esa misma tabla de cortes, con un saldo_base fijado a mano) -- sin
+ * leerla, cualquier cálculo aquí da un número inflado y sin sentido, como
+ * pasó (dio $523.80 contra un real de $118.83).
+ *
+ * ferre_saldos_bancarios (la vista que sí hace ese cálculo bien) y
+ * ferre_saldos_bancarios_cortes están restringidas a service_role, así que
+ * esta app -- sin backend propio -- no puede leerlas directo. La única
+ * fuente correcta es pedirle el número a un backend que sí tenga ese
+ * acceso: el mismo endpoint que ya usa transferencias.ferrisoluciones.com
+ * para el dashboard del contador (GET /payment-methods/transfer/balances en
+ * api-pos), con el token de la sesión actual.
  */
 async function getSaldoActual() {
     try {
         const supabase = getSupabaseClient();
-        const { data, error } = await supabase
-            .from('ferre_transferencias')
-            .select('caso, monto');
-
-        if (error) {
-            console.error('❌ Error al calcular el saldo actual:', error);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+            console.error('❌ No hay sesión activa para consultar el saldo de banco');
             return null;
         }
 
-        const montoTotal = (data || []).reduce((sum, movimiento) => {
-            const monto = parseFloat(movimiento.monto || 0);
-            return sum + (movimiento.caso === 'ingreso' ? monto : -monto);
-        }, 0);
+        const response = await fetch('https://api.ferrisoluciones.com/api/payment-methods/transfer/balances', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const body = await response.json().catch(() => null);
 
-        return { monto_total: montoTotal, ultima_actualizacion: new Date().toISOString() };
+        if (!response.ok || !body?.ok) {
+            console.error('❌ Error al consultar saldos bancarios:', body?.error || response.status);
+            return null;
+        }
+
+        const cuentas = (body.data || []).filter((cuenta) => cuenta.activo !== false);
+        const montoTotal = cuentas.reduce((sum, cuenta) => sum + (Number(cuenta.saldo) || 0), 0);
+
+        return { monto_total: montoTotal, ultima_actualizacion: new Date().toISOString(), cuentas };
     } catch (error) {
         console.error('Error en getSaldoActual:', error);
         return null;
