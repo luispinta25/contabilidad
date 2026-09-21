@@ -466,6 +466,35 @@ async function getGastosHoy(targetDate = new Date()) {
 }
 
 /**
+ * Obtiene los ingresos distintos a ventas registrados hoy (submódulo
+ * "Ingresos" dentro de Gastos del POS: fijos como Almuerzos Henry/Internet
+ * vecino, o sueltos). Lee de ferre_ingresos.
+ */
+async function getIngresosVariosHoy(targetDate = new Date()) {
+    try {
+        const supabase = getSupabaseClient();
+        const startOfDay = getStartOfDay(targetDate);
+        const endOfDay = getEndOfDay(targetDate);
+
+        const { data, error } = await supabase
+            .from('ferre_ingresos')
+            .select('*')
+            .gte('fechayhora', startOfDay)
+            .lte('fechayhora', endOfDay)
+            .order('fechayhora', { ascending: false });
+
+        if (error) {
+            console.error('❌ Error al obtener ingresos varios:', error);
+            return [];
+        }
+        return data || [];
+    } catch (error) {
+        console.error('Error en getIngresosVariosHoy:', error);
+        return [];
+    }
+}
+
+/**
  * Obtiene las transferencias registradas hoy
  * Lee de la tabla transferencias y separa por tipo (ingreso/egreso)
  */
@@ -758,6 +787,7 @@ async function calcularResumenDiario(fecha = new Date()) {
         const pagos = await getPagosRecibidosHoy(targetDate);
         const pagosProveedores = await getPagosProveedoresHoy(targetDate);
         const gastos = await getGastosHoy(targetDate);
+        const ingresosVarios = await getIngresosVariosHoy(targetDate);
         const transferencias = await getTransferenciasHoy(targetDate);
         const saldoActual = await getSaldoActual();
         const cajaInicial = await getCajaInicialPorFecha(fechaISO);
@@ -961,12 +991,30 @@ async function calcularResumenDiario(fecha = new Date()) {
             .filter(t => codigoEmpiezaCon(t, 'C'))
             .reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
 
-        const otrosIngresos = 0; // TODO: Implementar cuando exista tabla de otros ingresos
-        
+        // Ingresos del submódulo "Ingresos" del POS (distintos a ventas: fijos
+        // como Almuerzos Henry/Internet vecino, o sueltos). Cuentan como
+        // dinero real sin importar el canal -- a diferencia de una devolución,
+        // aquí no hay una venta original que "perdone" el monto.
+        const ingresosVariosActivos = ingresosVarios.filter(r => r.estado !== 'ANULADO');
+        const ingresosVariosEfectivo = ingresosVariosActivos
+            .filter(r => (r.metodo_cobro || '').toUpperCase() === 'EFECTIVO')
+            .reduce((sum, r) => sum + parseFloat(r.monto || 0), 0);
+        const ingresosVariosTransferencia = ingresosVariosActivos
+            .filter(r => (r.metodo_cobro || '').toUpperCase() === 'TRANSFERENCIA')
+            .reduce((sum, r) => sum + parseFloat(r.monto || 0), 0);
+        const totalIngresosVarios = ingresosVariosEfectivo + ingresosVariosTransferencia;
+        // totalIngresos es "todo lo que entró hoy" sin importar el canal (igual
+        // que las ventas suman efectivo+transferencia juntas). La conciliación
+        // de caja física/virtual usa sus propios baldes por separado más abajo
+        // (cajaFisicaIngresos.ingresosVarios solo la parte efectivo; el lado
+        // banco ya suma la transferencia sola vía transferencias.totalIngresos,
+        // que incluye la fila con código 'I' que crea el RPC de cobro).
+        const otrosIngresos = totalIngresosVarios;
+
         // Ingresos Totales = Ventas pagadas + CxC anotadas del día + Pagos CxC + Otros
         // No sumamos transferencias porque ya están incluidas en las ventas o pagos CxC
         const totalIngresos = totalVentasEfectivo + totalVentasTransferencia + totalCreditosOtorgados + totalPagosCxC + cambiosIngresosTotal + otrosIngresos;
-        const totalIngresosMovimientos = ventasEfectivo.length + ventasMixtas.length + ventasTransferencia.length + creditosNoPrestamo.length + pagos.length + movimientosDevoluciones.filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja)).length;
+        const totalIngresosMovimientos = ventasEfectivo.length + ventasMixtas.length + ventasTransferencia.length + creditosNoPrestamo.length + pagos.length + movimientosDevoluciones.filter(movimiento => ['ingreso', 'ingreso-virtual'].includes(movimiento.efectoCaja)).length + ingresosVariosActivos.length;
 
         // Egresos Totales = Pagos a Proveedores + Gastos + Devoluciones + Diezmo apartado + Préstamos en efectivo.
         // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
@@ -977,6 +1025,10 @@ async function calcularResumenDiario(fecha = new Date()) {
             ventas: totalVentasEfectivo,
             pagosCxC: pagosCxCEfectivo,
             otros: cambiosEfectivo,
+            // Ingresos fijos/sueltos del submódulo "Ingresos" cobrados en
+            // efectivo (ej. Almuerzos Henry). La parte por transferencia no va
+            // aquí: no es efectivo físico, ya se refleja en caja virtual.
+            ingresosVarios: ingresosVariosEfectivo,
             cambiosDinero: cambiosDineroEgresoBanco
         };
         const cajaFisicaEgresos = {
@@ -991,7 +1043,7 @@ async function calcularResumenDiario(fecha = new Date()) {
             transferenciasManuales: totalTransferenciasIngresoManuales,
             cambiosDinero: cambiosDineroIngresoBanco
         };
-        const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros + cajaFisicaIngresos.cambiosDinero
+        const cajaFisicaTotal = cajaFisicaIngresos.ventas + cajaFisicaIngresos.pagosCxC + cajaFisicaIngresos.otros + cajaFisicaIngresos.ingresosVarios + cajaFisicaIngresos.cambiosDinero
             - cajaFisicaEgresos.proveedores - cajaFisicaEgresos.gastos - cajaFisicaEgresos.devoluciones - cajaFisicaEgresos.diezmo - cajaFisicaEgresos.prestamosEfectivo - cajaFisicaEgresos.transferenciasManuales - cajaFisicaEgresos.cambiosDinero;
 
         const cajaVirtualIngresos = {
@@ -1068,6 +1120,15 @@ async function calcularResumenDiario(fecha = new Date()) {
                     efectivo: totalVentasEfectivo,
                     transferencia: totalVentasTransferencia,
                     credito: totalVentasCredito
+                },
+                // Submódulo "Ingresos" del POS (distintos a ventas: fijos como
+                // Almuerzos Henry/Internet vecino, o sueltos).
+                ingresosVarios: {
+                    total: totalIngresosVarios,
+                    efectivo: ingresosVariosEfectivo,
+                    transferencia: ingresosVariosTransferencia,
+                    cantidad: ingresosVariosActivos.length,
+                    lista: ingresosVariosActivos
                 }
             },
             egresos: {
