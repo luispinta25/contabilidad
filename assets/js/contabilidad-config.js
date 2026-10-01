@@ -941,7 +941,11 @@ async function calcularResumenDiario(fecha = new Date()) {
             .reduce((sum, p) => sum + parseFloat(p.monto_pago || 0), 0);
         const pagosProveedoresOtros = totalPagosProveedores - pagosProveedoresEfectivo - pagosProveedoresTransferencia;
 
-        const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
+        // getGastosHoy trae TODOS los gastos del día sin filtrar estado --
+        // uno anulado (ej. se registró en efectivo por error y se anuló)
+        // no debe seguir restando de la caja física esperada.
+        const gastosActivos = gastos.filter(g => String(g.estado || '').toUpperCase() !== 'ANULADO');
+        const totalGastos = gastosActivos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
         const transferenciasGastos = transferencias.egresos.filter(t => codigoEmpiezaCon(t, 'G'));
         const totalGastosTransferencia = transferenciasGastos.reduce((sum, t) => sum + parseFloat(t.monto || 0), 0);
         const gastosEfectivo = Math.max(totalGastos - totalGastosTransferencia, 0);
@@ -1019,7 +1023,7 @@ async function calcularResumenDiario(fecha = new Date()) {
         // Egresos Totales = Pagos a Proveedores + Gastos + Devoluciones + Diezmo apartado + Préstamos en efectivo.
         // No sumamos transferencias porque ya están incluidas en pagos a proveedores o gastos
         const totalEgresosGlobal = totalPagosProveedores + totalGastos + devolucionesEfectivo + diezmoEfectivo + totalPrestamosEfectivo;
-        const totalEgresosMovimientos = pagosProveedores.length + gastos.length + devoluciones.filter(devolucion => devolucion.tipo === 'DEVOLUCION').length + movimientosDiezmo.filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo').length + prestamosEfectivo.length;
+        const totalEgresosMovimientos = pagosProveedores.length + gastosActivos.length + devoluciones.filter(devolucion => devolucion.tipo === 'DEVOLUCION').length + movimientosDiezmo.filter(movimiento => movimiento.tipo === 'ingreso' && movimiento.origen === 'diezmo').length + prestamosEfectivo.length;
 
         const cajaFisicaIngresos = {
             ventas: totalVentasEfectivo,
